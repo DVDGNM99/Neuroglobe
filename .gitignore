@@ -1,0 +1,14 @@
+# Ignore raw data managed by AllenSDK
+data/raw/
+data/processed/
+
+# Ignore generic Python/System files
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/
+
+# Ignore Environment definitions (optional, but usually we keep the yml, ignore the folder)
+env/

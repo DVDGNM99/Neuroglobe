@@ -1,0 +1,13 @@
+name: allensdk
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10        # Manteniamo 3.10 per stabilità Windows
+  - numpy=1.23.5       # Bloccato alla versione che hai richiesto/testato
+  - pandas
+  - tables             # Necessario per i file HDF5 di Allen
+  - pip
+  - pip:
+    - allensdk
+    - pathlib

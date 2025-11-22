@@ -1,0 +1,17 @@
+visuals:
+  # The BrainGlobe atlas to use.
+  # "allen_mouse_25um" is the standard resolution.
+  atlas_name: "allen_mouse_25um"
+  
+  # Colormap from matplotlib (e.g., viridis, magma, plasma, inferno)
+  colormap: "plasma"
+  
+  # Transparency for regions (0.0 transparent -> 1.0 solid)
+  alpha: 0.8
+  
+  # If true, regions with 0 value are hidden completely to see the brain structure
+  hide_zeros: true
+  
+  # Render settings
+  background_color: "black"
+  screenshot_save_path: "output_renders/"

@@ -1,0 +1,39 @@
+experiment:
+  # The source region for injection (e.g., Primary Motor Area)
+  # Reference: http://atlas.brain-map.org/
+  seed_acronym: "DR"
+  
+  # Regex pattern to select target regions. ".*" selects everything.
+  # "^VIS" would select all visual areas.
+  target_regex: "*"
+
+processing:
+  # The metric to analyze from structure_unionize table
+  # Options: projection_density, projection_energy, projection_volume
+  metric: "projection_density"
+  
+  # How to combine data from multiple experiments
+  # Options: mean, median, max
+  aggregation_mode: "mean"
+
+selection:
+  # Se true, usa la lista sotto. Se false, usa la logica "Top 5" automatica.
+  use_custom_targets: true
+  
+  # Lista esatta delle aree che vuoi vedere
+  custom_targets:
+    - "MOp"      # M1 (Primary Motor)
+    - "MOs"      # M2 (Secondary Motor)
+    - "SSp-bfd"  # S1 (Primary Somatosensory - Barrel Field)
+    - "SSs"      # S2 (Supplemental Somatosensory)
+    - "VISp"     # V1 (Primary Visual)
+    - "RSPd"     # Retrosplenial (Dorsal)
+    - "PL"       # PFC (Prelimbic - parte della Prefrontale)
+    - "ACA"      # Anterior Cingulate (spesso associata a PFC)
+
+quality_control:
+  # Minimum injection volume (mm3) to include an experiment
+  min_injection_volume: 0.05
+  
+  # Drop targets where the metric is below this noise floor
+  threshold_lower: 0.00001

@@ -1,0 +1,31 @@
+name: brainglobe_render
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  # numerics / data
+  - numpy
+  - pandas
+  - scipy
+  - pytables
+  # GUI / viz stack
+  - pyqt
+  - vtk=9.2.*           
+  - pyvista
+  - vedo
+  - k3d
+  # brainglobe core on conda
+  - brainglobe-atlasapi
+  - brainglobe-utils
+  # tooling for the project
+  - pytest
+  - pytest-cov
+  - rich
+  - typer
+  - pydantic
+  - pip
+  - pip:
+      - brainrender==2.1.16
+      - morphapi
+      - brainglobe-space
+      - dearpygui
