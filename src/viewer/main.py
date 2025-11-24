@@ -21,10 +21,13 @@ class ViewerApp:
         self.acronym_lookup = {} 
         self.engine = None 
         
-        # Risolve la root directory in modo assoluto
+        # Variabile per tracciare l'ID del volume 3D corrente
+        self.current_tract_id = None
+        
         self.root_dir = Path(__file__).resolve().parent.parent.parent
         self.json_file = self.root_dir / CONFIG_PATH
         self.scenes_dir = self.root_dir / "scenes"
+        self.tracts_dir = self.root_dir / "data" / "processed" / "tracts"
         
         self.load_data()
 
@@ -75,10 +78,29 @@ class ViewerApp:
     def process_csv_selection(self, sender, app_data):
         file_path = app_data['file_path_name']
         dpg.set_value("status_text", f"Status: Loading {Path(file_path).name}...")
+        
+        # Carichiamo i dati con pandas qui per estrarre anche i metadati (tract_id)
+        # Nota: logic.process_csv_data torna solo la lista visiva, quindi leggiamo il raw df
+        import pandas as pd
+        try:
+            df = pd.read_csv(file_path)
+            # Cerchiamo la colonna magica aggiunta dal Miner
+            if 'tract_experiment_id' in df.columns:
+                self.current_tract_id = int(df['tract_experiment_id'].iloc[0])
+                print(f"[GUI] Found linked tractography ID: {self.current_tract_id}")
+                dpg.configure_item("chk_tracts", label=f"Show Tracts (ID: {self.current_tract_id})")
+            else:
+                self.current_tract_id = None
+                dpg.configure_item("chk_tracts", label="Show Tracts (Not Available)")
+        except Exception as e:
+            print(f"Metadata read error: {e}")
+            self.current_tract_id = None
+
         data = logic.process_csv_data(file_path, colormap_name="plasma")
         if not data:
             dpg.set_value("status_text", "Error: Could not read CSV or empty data.")
             return
+            
         self.clear_all_rows()
         limit = 500 
         count = 0
@@ -115,6 +137,23 @@ class ViewerApp:
             dpg.set_value("status_text", "Error: No valid regions selected.")
             return
 
+        # --- GESTIONE TRACTOGRAPHY ---
+        show_tracts = dpg.get_value("chk_tracts")
+        tract_path = None
+        
+        if show_tracts and self.current_tract_id:
+            # Cerchiamo il file .nrrd
+            possible_path = self.tracts_dir / f"{self.current_tract_id}.nrrd"
+            if possible_path.exists():
+                tract_path = possible_path
+            else:
+                # Fallback per il vecchio formato .mhd (giusto per sicurezza)
+                possible_path_mhd = self.tracts_dir / f"{self.current_tract_id}.mhd"
+                if possible_path_mhd.exists():
+                    tract_path = possible_path_mhd
+                else:
+                    print(f"[GUI] Warning: Tract file {self.current_tract_id} not found on disk.")
+
         seed_name, is_csv_seed = self.get_current_seed_info()
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         session_folder_name = f"{seed_name}_{timestamp}"
@@ -132,12 +171,17 @@ class ViewerApp:
             "timestamp": timestamp,
             "source_type": "CSV Loaded" if is_csv_seed else "Manual Selection",
             "regions_count": len(selection),
+            "tracts_enabled": bool(tract_path),
+            "tract_id": self.current_tract_id if tract_path else None,
             "targets_rendered": [s['acronym'] for s in selection if s['acronym'] != seed_name],
             "alpha_used": DEFAULT_ALPHA
         }
 
         dpg.set_value("status_text", "Rendering... Press 'S' to save scene.")
-        engine.render_scene(selection, alpha=DEFAULT_ALPHA, output_dir=session_save_path, metadata=metadata)
+        
+        # Lanciamo il render passando il percorso del volume
+        engine.render_scene(selection, tract_file=tract_path, alpha=DEFAULT_ALPHA, output_dir=session_save_path, metadata=metadata)
+        
         dpg.set_value("status_text", f"Status: Last session saved in scenes/{session_folder_name}")
 
     def build_gui(self):
@@ -152,12 +196,14 @@ class ViewerApp:
                 dpg.add_button(label="Add Region (+)", callback=lambda: self.add_row())
                 dpg.add_button(label="LOAD CSV DATA", callback=self.open_csv_dialog)
                 dpg.add_spacer(width=20)
+                
+                # Checkbox ATTIVO ora
+                dpg.add_checkbox(tag="chk_tracts", label="Show Tracts (Load CSV first)", default_value=True)
+                
+                dpg.add_spacer(width=20)
                 dpg.add_button(label="RENDER SCENE", callback=self.run_render, width=150)
 
             dpg.add_separator()
-            # RIMOSSO IL BLOCCO DI TESTO VECCHIO QUI
-            # La GUI è ora più pulita e lo spazio è dedicato alle righe.
-            
             dpg.add_child_window(tag="rows_container", border=False)
             self.add_row()
 

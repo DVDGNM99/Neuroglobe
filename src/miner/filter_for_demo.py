@@ -15,7 +15,6 @@ def load_config():
         return yaml.safe_load(f)
 
 def run_filter():
-    # 1. Carica Configurazione
     config = load_config()
     target_seed = config["experiment"]["seed_acronym"]
     use_custom = config.get("selection", {}).get("use_custom_targets", False)
@@ -23,7 +22,6 @@ def run_filter():
 
     print(f"--- FILTERING FOR SEED: {target_seed} ---")
     
-    # Costruiamo i nomi file basati sul seed corrente
     input_file = f"{target_seed}_connectivity.csv"
     output_file = f"{target_seed}_demo_filtered.csv"
     input_path = DATA_DIR / input_file
@@ -31,53 +29,50 @@ def run_filter():
     
     if not input_path.exists():
         print(f"[ERROR] File {input_file} not found.")
-        print("Did you remember to run 'fetch.py' and 'aggregate.py' for this new seed?")
         return
 
-    # 2. Carica Dati
+    # 1. Carica Dati Grezzi
     df = pd.read_csv(input_path)
     if 'is_seed' not in df.columns: df['is_seed'] = False
 
-    # 3. SEED HANDLING (Rimuovi guscio esterno)
+    # --- SALVIAMO L'ID DEI TRATTI ---
+    # Se esiste la colonna tract_experiment_id, salviamone il valore
+    # per riapplicarlo alla fine, altrimenti lo perdiamo filtrando.
+    tract_id = None
+    if 'tract_experiment_id' in df.columns:
+        tract_id = df['tract_experiment_id'].iloc[0]
+        print(f"[FILTER] Preserving Tractography ID: {tract_id}")
+
+    # 2. Pulizia Blacklist (Gusci esterni)
     blacklist = ["root", "grey", "CH", "Isocortex", "CTX", "BS", "HB"]
-    
     seeds_df = df[df['is_seed'] == True].copy()
     
-    # Cerchiamo il seed esatto
+    # Gestione Seed
     exact_seed = seeds_df[seeds_df['acronym'] == target_seed]
-    
-    if not exact_seed.empty:
-        # Se troviamo esattamente lui, usiamo solo lui (pulito)
-        seeds_clean = exact_seed.copy()
-    else:
-        # Fallback: teniamo i seed che non sono blacklisted
-        seeds_clean = seeds_df[~seeds_df['acronym'].isin(blacklist)].copy()
+    seeds_clean = exact_seed.copy() if not exact_seed.empty else seeds_df[~seeds_df['acronym'].isin(blacklist)].copy()
 
-    # 4. TARGET SELECTION
+    # 3. Selezione Target
     targets_source = df[df['is_seed'] == False].copy()
     
     if use_custom and custom_list:
         print(f"Using Custom Target List: {custom_list}")
-        # Filtra solo le aree presenti nella lista custom
         selected_targets = targets_source[targets_source['acronym'].isin(custom_list)].copy()
-        
-        # Check se abbiamo trovato tutto
-        found = selected_targets['acronym'].unique()
-        missing = set(custom_list) - set(found)
-        if missing:
-            print(f"[WARNING] Some requested targets have 0 connectivity or invalid names: {missing}")
     else:
-        # Logica Top 5 (Vecchio metodo)
         print("Using Automatic Top-5 Selection")
         def is_layer(x): return bool(re.search(r'\d', str(x)))
         targets_clean = targets_source[~targets_source['acronym'].apply(is_layer)].copy()
         targets_sorted = targets_clean.sort_values(by='value', ascending=False).reset_index(drop=True)
-        indices = [0, 10, 30, 60, 100]
-        valid_idxs = [i for i in indices if i < len(targets_sorted)]
-        selected_targets = targets_sorted.iloc[valid_idxs].copy()
+        # Prendiamo top 10 per sicurezza
+        selected_targets = targets_sorted.iloc[:10].copy()
 
-    # 5. Unisci e Salva
+    # 4. Unione
     final_demo = pd.concat([seeds_clean, selected_targets], ignore_index=True)
+
+    # --- RI-APPLICHIAMO L'ID DEI TRATTI ---
+    if tract_id is not None:
+        final_demo['tract_experiment_id'] = tract_id
+
+    # 5. Salvataggio
     final_demo.to_csv(output_path, index=False)
     
     print("\n--- RESULT PREVIEW ---")

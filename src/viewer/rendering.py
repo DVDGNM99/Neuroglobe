@@ -4,25 +4,34 @@ from pathlib import Path
 from datetime import datetime
 from brainglobe_atlasapi import BrainGlobeAtlas
 from brainrender import Scene, settings, actors
-
-# Importiamo Text2D e Sphere direttamente da vedo
-from vedo import Text2D, Sphere
+from vedo import Text2D, Sphere, Volume
 
 # --- CONFIGURAZIONE ESTETICA ---
-settings.SHOW_AXES = False 
+settings.SHOW_AXES = False
 settings.WHOLE_SCREEN = False
 settings.BACKGROUND_COLOR = "white"
-settings.SCREENSHOT_TRANSPARENT_BACKGROUND = True 
+settings.SCREENSHOT_TRANSPARENT_BACKGROUND = True
 
-# Coordinate approssimative del centro del cervello (Allen CCFv3)
-# Servono per dire alla telecamera dove guardare.
-BREGMA_CENTER = [6500, 3800, 5600] 
+BREGMA_CENTER = [6500, 3800, 5600]
+
+# --- CONFIGURAZIONE ROTAZIONE (LOCALE) ---
+ROTATION_MODE = "final_y_270"
+
+# --- CONFIGURAZIONE SPOSTAMENTO FINE (TRASLAZIONE) ---
+# Unità = MICRON (1000 = 1 mm)
+# Modifica questi valori per allineare la nuvola blu
+SHIFT_X = 400  # + va dx, - va sx
+SHIFT_Y = -50  # + va giù (Ventrale), - va su (Dorsale)
+SHIFT_Z = -200   # + va dietro, - va avanti
 
 class RenderEngine:
     def __init__(self, atlas_name="allen_mouse_25um"):
         print(f"Initializing Atlas: {atlas_name}...")
         self.atlas = BrainGlobeAtlas(atlas_name)
         self.atlas_name = atlas_name
+        
+        self.root_dir = Path(__file__).resolve().parent.parent.parent
+        self.default_scenes_dir = self.root_dir / "scenes"
 
     def validate_regions(self, regions: list) -> tuple:
         valid = []
@@ -35,111 +44,130 @@ class RenderEngine:
                 invalid.append(r)
         return valid, invalid
 
-    def render_scene(self, region_config: list, alpha=0.5, output_dir: Path = None, metadata: dict = None):
+    def render_scene(self, region_config: list, tract_file: Path = None, alpha=0.5, output_dir: Path = None, metadata: dict = None):
         """
-        Render engine con telecamera programmata manualmente (VTK logic).
+        Render engine con Rotazione + Shift Manuale.
         """
         scene = Scene(atlas_name=self.atlas_name, title="")
         
-        # --- 1. Regioni ---
+        # --- 0. CONTESTO (ROOT) ---
+        try:
+            scene.add_brain_region("root", alpha=0.1, color="grey").wireframe()
+        except Exception as e:
+            print(f"[WARNING] Could not add root: {e}")
+
+        # --- 1. Regioni Target ---
         print(f"Building scene with {len(region_config)} regions...")
-        missing_meshes = []
-
         for item in region_config:
-            acr = item['acronym']
-            col = item['color']
             try:
-                scene.add_brain_region(acr, alpha=alpha, color=col)
-            except Exception as e:
-                missing_meshes.append(acr)
+                scene.add_brain_region(item['acronym'], alpha=alpha, color=item['color'])
+            except: pass
 
-        # --- 2. HUD ---
+        # --- 2. Tractography (LOAD & ALIGN) ---
+        if tract_file and tract_file.exists():
+            print(f"[RENDER] Loading Tractography: {tract_file.name}")
+            try:
+                vol = Volume(str(tract_file))
+                dmin, dmax = vol.scalar_range()
+                
+                if dmax > 0:
+                    threshold_val = dmax * 0.10
+                    tract_actor = vol.isosurface(value=threshold_val)
+                    
+                    # --- A. FIX PIVOT & ROTATION ---
+                    center = tract_actor.center_of_mass()
+                    print(f"[ALIGN] Center of Mass: {center}")
+                    
+                    if ROTATION_MODE == "standard":
+                        tract_actor.rotate(-90, axis=(1,0,0), point=center)
+                        tract_actor.rotate(180, axis=(0,0,1), point=center)
+                    elif ROTATION_MODE == "final_y_270":
+                         print("[ALIGN] Applying Rotation: Y 270")
+                         tract_actor.rotate(270, axis=(0,1,0), point=center)
+
+                    # --- B. FIX TRASLAZIONE (SHIFT FINE) ---
+                    print(f"[ALIGN] Applying Manual Shift: X={SHIFT_X}, Y={SHIFT_Y}, Z={SHIFT_Z}")
+                    # .shift() sposta l'attore di dx, dy, dz rispetto alla posizione corrente
+                    tract_actor.shift(SHIFT_X, SHIFT_Y, SHIFT_Z)
+
+                    tract_actor.c("blue").alpha(0.4)
+                    scene.add(tract_actor)
+                    print("[RENDER] Tracts added and aligned.")
+                else:
+                    print("[WARNING] Volume is empty.")
+
+            except Exception as e:
+                print(f"[ERROR] Tract render failed: {e}")
+
+        # --- 3. HUD ---
         legend_text = (
             "CONTROLS:\n"
-            "[X] Side View (Sagittal)\n"
-            "[Y] Front View (Coronal)\n"
-            "[Z] Top View (Dorsal)\n"
-            "-----------------\n"
-            "[S] Save Scene"
+            "[X/Y/Z] Views\n"
+            "[S] Save Scene (PNG+SVG)"
         )
-        
         hud = Text2D(legend_text, pos="bottom-left", s=0.9, c="black", font="Calco")
         scene.add(hud)
 
-        # --- 3. Colorbar ---
+        # --- 4. Colorbar ---
         try:
-            dummy_mesh = Sphere(r=0, res=20).pos(0,0,0).alpha(0)
-            dummy_mesh.cmap("plasma", list(range(dummy_mesh.npoints)))
-            scene.add(dummy_mesh)
-            scene.plotter.add_scalar_bar(
-                dummy_mesh, title="Density", pos=(0.85, 0.05),
-                nlabels=3, c="black", fmt="High"
-            )
-        except Exception:
-            pass
+            dummy = Sphere(r=0).pos(0,0,0).alpha(0)
+            dummy.cmap("plasma", [0,1])
+            scene.add(dummy)
+            scene.plotter.add_scalar_bar(dummy, title="Density", pos=(0.85, 0.05), c="black")
+        except: pass
 
-        # --- 4. LOGICA CALLBACK (Telecamera Manuale) ---
+        # --- 5. INTERAZIONE ---
         def on_keypress(event):
             key = event.keypress
             if not key: return
-
-            # Otteniamo la telecamera VTK direttamente
-            # Questo bypassa qualsiasi blocco di brainrender
             cam = scene.plotter.camera
             
-            # [Z] TOP VIEW (Dorsal)
-            # Guarda dall'alto (asse Y negativo in Allen CCF spesso)
             if key == 'z':
-                print("[CAM] View: Top (Z)")
-                # Posizioniamo la camera molto in alto sopra il centro
                 cam.SetPosition(BREGMA_CENTER[0], -10000, BREGMA_CENTER[2])
                 cam.SetFocalPoint(BREGMA_CENTER[0], BREGMA_CENTER[1], BREGMA_CENTER[2])
-                # Orientiamo l'"alto" della camera lungo l'asse X
                 cam.SetViewUp(1, 0, 0)
                 scene.plotter.reset_camera()
-
-            # [X] SIDE VIEW (Sagittal)
-            # Guarda dal lato (asse Z)
             elif key == 'x':
-                print("[CAM] View: Side (X)")
                 cam.SetPosition(BREGMA_CENTER[0], BREGMA_CENTER[1], 20000)
                 cam.SetFocalPoint(BREGMA_CENTER[0], BREGMA_CENTER[1], BREGMA_CENTER[2])
                 cam.SetViewUp(0, -1, 0)
                 scene.plotter.reset_camera()
-
-            # [Y] FRONT VIEW (Coronal)
-            # Guarda da davanti (asse X)
             elif key == 'y':
-                print("[CAM] View: Front (Y)")
                 cam.SetPosition(20000, BREGMA_CENTER[1], BREGMA_CENTER[2])
                 cam.SetFocalPoint(BREGMA_CENTER[0], BREGMA_CENTER[1], BREGMA_CENTER[2])
                 cam.SetViewUp(0, -1, 0)
                 scene.plotter.reset_camera()
             
-            # [S] SAVE
             elif key == 's':
-                if output_dir and metadata:
-                    timestamp_shot = datetime.now().strftime("%H%M%S")
-                    shot_name = f"screenshot_{timestamp_shot}.png"
-                    shot_path = output_dir / shot_name
-                    print(f"\n[NEUROGLOBE] Saving: {shot_path}")
-                    scene.screenshot(name=str(shot_path))
-                    
-                    meta_path = output_dir / "metadata.yml"
-                    try:
-                        with open(meta_path, 'w') as f:
-                            yaml.dump(metadata, f, sort_keys=False)
-                        print("[NEUROGLOBE] Metadata saved.")
-                    except Exception as e:
-                         print(f"Error saving YAML: {e}")
+                if output_dir:
+                    save_dir = output_dir
                 else:
-                    print("[ERROR] Save dir missing.")
+                    save_dir = self.default_scenes_dir
+                    save_dir.mkdir(exist_ok=True, parents=True)
 
-        # Aggancio al motore
+                timestamp_shot = datetime.now().strftime("%H%M%S")
+                
+                # --- SAVE PNG ---
+                png_path = save_dir / f"screenshot_{timestamp_shot}.png"
+                scene.screenshot(name=str(png_path))
+                print(f"\n[SAVE] PNG saved to: {png_path}")
+
+                # --- SAVE SVG ---
+                svg_path = save_dir / f"screenshot_{timestamp_shot}.svg"
+                print(f"[SAVE] Attempting SVG export...")
+                try:
+                    scene.plotter.screenshot(str(svg_path))
+                    print(f"[SAVE] SVG saved to: {svg_path}")
+                except Exception as e:
+                    print(f"[ERROR] SVG Export failed: {e}")
+
+                try:
+                     with open(save_dir / "metadata.yml", 'w') as f:
+                        yaml.dump(metadata, f, sort_keys=False)
+                except: pass
+
         scene.plotter.add_callback('keypress', on_keypress)
 
-        print("\n--- RENDER LOOP STARTED ---")
-        print("Use keys [X, Y, Z] to snap view. [S] to save.")
+        print("\n--- RENDER LOOP ---")
         scene.render()
-        
-        return missing_meshes
+        return []
