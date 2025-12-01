@@ -13,16 +13,21 @@ venv/
 # --- Data Handling ---
 # 1. Ignora la cartella raw (troppo pesante)
 data/raw/
+data/processed/
+data/processed/
+*.nrrd
+*.vtk
+*.vti
 
 # 2. Ignora tutti i CSV in processed...
-data/processed/*.csv
+# data/processed/*.csv
 # 3. ...MA TIENI questo specifico file come template!
 !data/processed/DR_demo_filtered.csv
 
 # --- Scenes / Output ---
 # Se vuoi tenere gli screenshot come demo, NON ignorare la cartella scenes.
 # Oppure, se vuoi ignorare le future ma tenere quelle attuali, usa:
-# scenes/
+scenes/
 # !scenes/DR_2025-*/   <-- Esempio se volessi salvarne una specifica
 # Per ora, dato che vuoi usarle come template, commentiamo l'ignore:
-# scenes/
+

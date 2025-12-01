@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 
-# --- Configurazione Percorsi ---
+# --- Path Configuration ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONFIG_PATH = PROJECT_ROOT / "configs" / "mining_config.yaml"
 DATA_RAW_PATH = PROJECT_ROOT / "data" / "raw"
@@ -16,7 +16,7 @@ def load_config():
 
 def get_experiments(seed_acronym: str, manifest_path: Path):
     """
-    Interroga l'Allen API per trovare esperimenti con iniezione nel seed_acronym.
+    Queries the Allen API to find experiments with injection in the seed_acronym.
     """
     print(f"Initializing MouseConnectivityCache at: {manifest_path}")
     
@@ -27,7 +27,7 @@ def get_experiments(seed_acronym: str, manifest_path: Path):
     
     ontology = mcc.get_structure_tree()
     
-    # 1. Ottieni ID numerico della regione seed
+    # 1. Get numeric ID of the seed region
     try:
         seed_structure = ontology.get_structures_by_acronym([seed_acronym])[0]
         seed_id = seed_structure['id']
@@ -35,7 +35,7 @@ def get_experiments(seed_acronym: str, manifest_path: Path):
     except IndexError:
         raise ValueError(f"Region '{seed_acronym}' not found in Allen Ontology.")
 
-    # 2. Trova esperimenti
+    # 2. Find experiments
     print("Querying experiments... (this might take a moment)")
     experiments = mcc.get_experiments(dataframe=True, 
                                       injection_structure_ids=[seed_id])

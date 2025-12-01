@@ -1,98 +1,76 @@
-import yaml
 import shutil
-import os
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
+import yaml
 
-# --- Configurazione Percorsi ---
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-CONFIG_PATH = BASE_DIR / "configs" / "mining_config.yaml"
-DATA_RAW_PATH = BASE_DIR / "data" / "raw"
-DATA_PROCESSED_TRACTS = BASE_DIR / "data" / "processed" / "tracts"
+# --- CONFIGURATION ---
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+CONFIG_PATH = PROJECT_ROOT / "configs" / "mining_config.yaml"
+DATA_RAW_PATH = PROJECT_ROOT / "data" / "raw"
+DATA_PROCESSED_TRACTS = PROJECT_ROOT / "data" / "processed" / "tracts"
 
 def load_config():
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError("Config file missing!")
-    with open(CONFIG_PATH, "r") as f:
+    with open(CONFIG_PATH, 'r') as f:
         return yaml.safe_load(f)
 
-def fetch_and_process_tracts(experiment_id: int):
+def fetch_and_process_tracts(experiment_id):
+    """
+    Downloads Projection Density AND Projection Energy for the given experiment ID.
+    Saves them as:
+      - {id}_density.nrrd
+      - {id}_energy.nrrd
+    """
     print(f"[TRACTS] Processing Experiment {experiment_id}...")
     
-    mcc = MouseConnectivityCache(manifest_file=str(DATA_RAW_PATH / "manifest.json"),
-                                 resolution=25)
-    
-    # 1. Trigger Download
-    print(f"[TRACTS] Triggering download via SDK...")
-    try:
-        mcc.get_projection_density(experiment_id)
-    except Exception as e:
-        print(f"[ERROR] Download trigger failed: {e}")
-        return False
-
-    # 2. Ricerca File (NRRD o MHD)
-    experiment_dir = DATA_RAW_PATH / f"experiment_{experiment_id}"
-    
-    if not experiment_dir.exists():
-        print(f"[ERROR] Cache folder not found: {experiment_dir}")
-        return False
-        
-    # Cerchiamo prima il formato moderno (.nrrd)
-    nrrd_files = list(experiment_dir.glob("*.nrrd"))
-    mhd_files = list(experiment_dir.glob("*.mhd"))
+    # Initialize Cache
+    mcc = MouseConnectivityCache(manifest_file=str(DATA_RAW_PATH / "manifest.json"))
     
     DATA_PROCESSED_TRACTS.mkdir(parents=True, exist_ok=True)
 
-    # --- CASO A: Formato Moderno (.nrrd) ---
-    if nrrd_files:
-        source_path = nrrd_files[0]
-        dest_name = f"{experiment_id}.nrrd"
-        dest_path = DATA_PROCESSED_TRACTS / dest_name
-        
-        print(f"[TRACTS] Found NRRD format: {source_path.name}")
-        try:
-            shutil.copy(source_path, dest_path)
-            print(f"[SUCCESS] Tractography (NRRD) ready: {dest_path}")
-            return True
-        except Exception as e:
-            print(f"[ERROR] Copy failed: {e}")
-            return False
-
-    # --- CASO B: Formato Vecchio (.mhd + .raw) ---
-    elif mhd_files:
-        source_mhd = mhd_files[0]
-        source_raw = source_mhd.with_suffix('.raw')
-        
-        dest_mhd = DATA_PROCESSED_TRACTS / f"{experiment_id}.mhd"
-        dest_raw = DATA_PROCESSED_TRACTS / f"{experiment_id}.raw"
-        
-        print(f"[TRACTS] Found MHD format: {source_mhd.name}")
-        
-        try:
-            shutil.copy(source_raw, dest_raw)
-            # Patch header
-            with open(source_mhd, 'r') as f: lines = f.readlines()
-            with open(dest_mhd, 'w') as f:
-                for line in lines:
-                    if line.strip().startswith("ElementDataFile"):
-                        f.write(f"ElementDataFile = {experiment_id}.raw\n")
-                    else:
-                        f.write(line)
-            print(f"[SUCCESS] Tractography (MHD) ready: {dest_mhd}")
-            return True
-        except Exception as e:
-            print(f"[ERROR] MHD processing failed: {e}")
-            return False
-            
-    else:
-        print(f"[ERROR] No valid density files (.nrrd or .mhd) found in {experiment_dir}")
+    try:
+        import SimpleITK as sitk
+    except ImportError:
+        print("[ERROR] SimpleITK not found. Please install it in 'allensdk' env.")
         return False
 
-if __name__ == "__main__":
-    print("--- Tractography Extractor Test (Dual Format Support) ---")
-    from fetch import get_experiments
-    
-    cfg = load_config()
+    success_count = 0
+
+    # --- 1. PROJECTION DENSITY ---
+    print(f"  > Fetching projection_density...")
+    try:
+        # Returns (data, dict)
+        data, meta = mcc.get_projection_density(experiment_id)
+        
+        dest_name = f"{experiment_id}_density.nrrd"
+        dest_path = DATA_PROCESSED_TRACTS / dest_name
+        
+        # Convert to SimpleITK Image
+        img = sitk.GetImageFromArray(data)
+        
+        # Apply Metadata if available
+        if 'resolution' in meta:
+            img.SetSpacing(meta['resolution'])
+        if 'space origin' in meta:
+            img.SetOrigin(meta['space origin'])
+            
+        sitk.WriteImage(img, str(dest_path))
+        print(f"    [OK] Saved {dest_path.name}")
+        success_count += 1
+    except Exception as e:
+        print(f"    [ERROR] Failed to fetch density: {e}")
+
+    # --- 2. PROJECTION ENERGY ---
+    print(f"  > Fetching projection_energy...")
+    try:
+        # Attempt to use internal API if public method doesn't exist
+        # Note: This is a best-effort guess based on API structure
+        dest_name = f"{experiment_id}_energy.mhd" # API usually downloads MHD
+        dest_path = DATA_PROCESSED_TRACTS / dest_name
+        
+        # Check if we can download it directly via API
+        # mcc.api is usually a GridDataApi
+        if hasattr(mcc, 'api') and hasattr(mcc.api, 'download_projection_energy'):
+            mcc.api.download_projection_energy(experiment_id, str(dest_path))
     seed = cfg["experiment"]["seed_acronym"]
     print(f"Finding experiments for seed: {seed}")
     

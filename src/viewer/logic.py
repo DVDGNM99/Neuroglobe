@@ -54,7 +54,7 @@ def hex_to_rgb(hex_str: str) -> List[int]:
     h = hex_str.lstrip('#')
     return [int(h[i:i+2], 16) for i in (0, 2, 4)]
 
-def process_csv_data(file_path: str, colormap_name="plasma") -> List[dict]:
+def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict], float, float]:
     try:
         df = pd.read_csv(file_path)
         # Check columns (supportiamo anche la nuova colonna is_seed opzionale)
@@ -77,6 +77,7 @@ def process_csv_data(file_path: str, colormap_name="plasma") -> List[dict]:
         v_min, v_max = target_values.min(), target_values.max()
         norm = mcolors.Normalize(vmin=v_min, vmax=v_max)
     else:
+        v_min, v_max = 0.0, 1.0
         norm = mcolors.Normalize(vmin=0, vmax=1)
     
     cmap = plt.get_cmap(colormap_name)
@@ -101,4 +102,32 @@ def process_csv_data(file_path: str, colormap_name="plasma") -> List[dict]:
     # Mettiamo il SEED in cima alla lista così appare per primo nella GUI
     results.sort(key=lambda x: x['is_seed'], reverse=True)
         
-    return results
+    # Mettiamo il SEED in cima alla lista così appare per primo nella GUI
+    results.sort(key=lambda x: x['is_seed'], reverse=True)
+        
+    return results, v_min, v_max
+
+def get_descendants(parent_acronym: str, atlas_name="allen_mouse_25um") -> List[str]:
+    """
+    Returns a list of all descendant acronyms for a given parent structure.
+    """
+    try:
+        from brainglobe_atlasapi import BrainGlobeAtlas
+        atlas = BrainGlobeAtlas(atlas_name)
+        
+        # Get ID of the parent
+        parent_id = atlas.structures[parent_acronym]["id"]
+        
+        # Get descendants (returns list of IDs)
+        descendant_ids = atlas.get_structure_descendants(parent_id)
+        
+        # Convert IDs back to acronyms
+        descendant_acronyms = [atlas.structures[did]["acronym"] for did in descendant_ids]
+        
+        # Include the parent itself? Usually yes for "select all"
+        descendant_acronyms.append(parent_acronym)
+        
+        return descendant_acronyms
+    except Exception as e:
+        print(f"[LOGIC] Failed to get descendants for {parent_acronym}: {e}")
+        return []
