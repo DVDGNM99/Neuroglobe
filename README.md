@@ -1,5 +1,5 @@
 
-
+# NeuroGlobe
 **NeuroGlobe** is a comprehensive toolkit for mining, analyzing, and visualizing mouse brain connectivity data using the Allen Brain Atlas API. It provides a pipeline to fetch experimental data, perform statistical analysis, and render 3D interactive scenes with tractography.
 
 ---
