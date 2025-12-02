@@ -2,6 +2,11 @@
 # NeuroGlobe
 **NeuroGlobe** is a comprehensive toolkit for mining, analyzing, and visualizing mouse brain connectivity data using the Allen Brain Atlas API. It provides a pipeline to fetch experimental data, perform statistical analysis, and render 3D interactive scenes with tractography.
 
+## 🔗 Documentation & Roadmap
+
+- **[TUTORIAL.md](https://github.com/DVDGNM99/Neuroglobe-3.0/blob/main/TUTORIAL.md)**: This file provides a complete guide to the project. It covers **Environment Setup** (Conda), **Data Mining** (how to fetch and process data), **3D Viewer Usage** (controls and features), and a detailed **Project Structure** breakdown. It also includes a **Troubleshooting** section.
+- **[ROADMAP.md](https://github.com/DVDGNM99/Neuroglobe-3.0/blob/main/ROADMAP.md)**: This file tracks the development progress. It lists **Completed Features** (like the native workflow and alignment system), **In Progress** items (advanced analysis, viewer enhancements), and contains critical **Developer Notes** regarding the manual alignment logic.
+
 ---
 
 ## 📚 Table of Contents
