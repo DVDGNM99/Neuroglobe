@@ -23,7 +23,7 @@
 ## 📂 Project Structure
 
 ```
-neuroglobe-antigravity/
+neuroglobe3.0/
 ├── analysis/               # Jupyter notebooks for statistical analysis
 ├── configs/                # Configuration files (YAML/JSON)
 ├── data/                   # Data storage (Raw & Processed)
