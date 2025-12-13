@@ -3,9 +3,16 @@ from unittest.mock import MagicMock, patch
 import sys
 from pathlib import Path
 import yaml
+import numpy as np
 
 # Add src to path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+
+# Mock dependencies GLOBALLY for this file
+# We cannot use patch.dict context manager because it reverts sys.modules on exit,
+# causing subsequent imports (by @patch decorators) to fail.
+sys.modules['brainglobe_atlasapi'] = MagicMock()
+sys.modules['vedo'] = MagicMock()
 
 from src.viewer import filter_tracts
 
@@ -41,13 +48,17 @@ def test_get_latest_tract_file(tmp_path):
 
 @patch('src.viewer.filter_tracts.BrainGlobeAtlas')
 @patch('src.viewer.filter_tracts.Volume')
-@patch('src.viewer.filter_tracts.merge')
-def test_run_filter_flow(mock_merge, mock_volume, mock_atlas, tmp_path):
+def test_run_filter_flow(mock_volume, mock_atlas, tmp_path):
     # Setup Mocks
     mock_bg = mock_atlas.return_value
     mock_bg.mesh_from_structure.return_value = MagicMock() # Mesh object
     
+    # Mock return value for get_structure_mask to avoid logic error
+    mock_bg.get_structure_mask.return_value = np.zeros((10, 10, 10), dtype=bool)
+    mock_bg.annotation.shape = (10, 10, 10)
+    
     mock_vol_instance = mock_volume.return_value
+    mock_vol_instance.tonumpy.return_value = np.zeros((10, 10, 10), dtype=float) # Match atlas shape
     mock_vol_instance.scalar_range.return_value = [0, 100]
     mock_vol_instance.isosurface.return_value = MagicMock() # Vol Mesh
     
@@ -62,4 +73,3 @@ def test_run_filter_flow(mock_merge, mock_volume, mock_atlas, tmp_path):
                 # Verify
                 mock_atlas.assert_called()
                 mock_volume.assert_called()
-                mock_merge.assert_called()

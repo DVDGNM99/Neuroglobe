@@ -4,11 +4,18 @@ from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 import sys
 
-# Fix import path
-sys.path.append(str(Path(__file__).resolve().parent))
 
-# Import from existing miner
-from fetch import get_experiments, DATA_RAW_PATH, CONFIG_PATH
+
+from src.definitions import PROJECT_ROOT, CONFIGS_DIR, RAW_DATA_DIR
+from src.logger_config import log
+
+# Import from functional modules
+# miner_analysis seems to duplicate logic from fetch? 
+# It imports get_experiments from fetch.
+from src.miner.fetch import get_experiments
+
+CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
+ANALYSIS_DATA_DIR = PROJECT_ROOT / "analysis" / "data"
 
 def load_config():
     with open(CONFIG_PATH, "r") as f:
@@ -18,17 +25,17 @@ def run_analysis_mining():
     # 1. Setup
     config = load_config()
     seed = config["experiment"]["seed_acronym"]
-    print(f"--- STARTING FULL ANALYSIS MINING FOR SEED: {seed} ---")
+    log.info(f"--- STARTING FULL ANALYSIS MINING FOR SEED: {seed} ---")
 
     # 2. Fetch Experiments
-    experiments, mcc = get_experiments(seed, DATA_RAW_PATH)
+    experiments, mcc = get_experiments(seed, RAW_DATA_DIR)
     experiment_ids = experiments['id'].tolist()
     
     if not experiment_ids:
-        print("[ERROR] No experiments found.")
+        log.error("[ERROR] No experiments found.")
         return
 
-    print(f"[ANALYSIS] Found {len(experiment_ids)} experiments. Fetching unionize data...")
+    log.info(f"[ANALYSIS] Found {len(experiment_ids)} experiments. Fetching unionize data...")
 
     # 3. Fetch Unionizes (All experiments)
     try:
@@ -36,7 +43,7 @@ def run_analysis_mining():
     except AttributeError:
         unionizes = mcc.get_structure_unionize(experiment_ids)
 
-    print(f"[ANALYSIS] Raw unionize rows: {len(unionizes)}")
+    log.info(f"[ANALYSIS] Raw unionize rows: {len(unionizes)}")
 
     # 4. Enrich with Ontology (Acronyms)
     st = mcc.get_structure_tree()
@@ -101,13 +108,13 @@ def run_analysis_mining():
     final_df = unionizes[cols_to_keep].copy()
 
     # 7. Save
-    output_dir = Path(__file__).resolve().parent.parent.parent / "analysis" / "data"
+    output_dir = ANALYSIS_DATA_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / f"{seed}_full_analysis.csv"
     
     final_df.to_csv(output_file, index=False)
-    print(f"\n[SUCCESS] Full analysis data saved to: {output_file}")
-    print(final_df.head())
+    log.info(f"[SUCCESS] Full analysis data saved to: {output_file}")
+    log.info(f"First 5 rows:\n{final_df.head()}")
 
 if __name__ == "__main__":
     run_analysis_mining()

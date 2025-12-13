@@ -2,10 +2,9 @@
 
 ## 🚧 In Progress
 - [ ] **Advanced Analysis**: Inter-animal variability, normalized connectivity indices.
-- [ ] **Viewer Enhancements**: 
-    - [ ] **Click-to-Info**: Select a brain region to see statistics (Currently disabled).
-    - [ ] **2D Slicing**: Coronal/Sagittal views.
-- [ ] **Multi-Atlas Support**: Support for rat and zebrafish atlases.
+<!-- Deferred Features -->
+<!-- - [ ] **Viewer Enhancements**: Click-to-Info, 2D Slicing (Moved to Future) -->
+
 
 ## 🔮 Future Improvements (Todo)
 
@@ -18,17 +17,19 @@
 - [ ] **Gene Expression Integration**: Cross-reference connectivity data with Allen Gene Expression Atlas data.
 
 ### 💾 Saving & Export
-- [ ] **Fix Auto-Save Behavior**: Ensure scenes/metadata are saved **ONLY** when 'S' is pressed. Prevent automatic saving on viewer launch/exit.
-- [ ] **Vector SVG Export**: Implement true vector-based SVG export when 'S' is pressed (ensure it is not just a raster image inside an SVG container) for high-quality publication figures.
+- [x] **Fix Auto-Save Behavior**: Ensure scenes/metadata are saved **ONLY** when 'S' is pressed. Prevent automatic saving on viewer launch/exit.
+- [x] **Professional Geometry Export (OBJ)**: Implemented `.obj` export (merged geometry) when 'S' is pressed to enable high-quality SVG generation in Blender (replacing direct unstable SVG export).
 
-### 🏗️ Architecture & Refactoring
-- [ ] **Refactor Viewer Architecture**: Split `src/viewer/main.py` into `gui.py` (layout) and `controller.py` (logic) to decouple UI from business logic.
-- [ ] **Clean up `filter_tracts.py`**: Remove duplicated code blocks and extract file/config helpers to a shared utility module.
-- [ ] **Centralize Configuration**: Move hardcoded constants (e.g., alignment shifts in `rendering.py`) to external config files (YAML/JSON) to avoid editing source code.
-- [ ] **Unified Data Manager**: Create a `DataManager` class to handle all file I/O (finding tracts, loading CSVs, saving scenes) centrally.
+### 🏗️ Architecture & Refactoring (Completed v4.0)
+- [x] **Refactor Viewer Architecture**: Split `src/viewer/main.py` into `gui.py` (layout) and `controller.py` (logic) to decouple UI from business logic.
+- [x] **Clean up `filter_tracts.py`**: Remove duplicated code blocks and extract file/config helpers to a shared utility module.
+- [x] **Centralize Configuration**: Move hardcoded constants (e.g., alignment shifts in `rendering.py`) to external config files (YAML/JSON) to avoid editing source code.
+- [x] **Unified Data Manager**: Create a `DataManager` class to handle all file I/O (finding tracts, loading CSVs, saving scenes) centrally.
 
 ### 🖥️ GUI & Visualization
-- [ ] **Legend Toggle Button**: Add a GUI button to optionally load/display the heatmap colorbar (legend) upon rendering, instead of showing it by default.
+- [x] **Legend Toggle Button**: Add a GUI button to optionally load/display the heatmap colorbar (legend) upon rendering, instead of showing it by default.
+- [ ] **Click-to-Info**: (Deferred) Select a brain region to see statistics.
+- [ ] **2D Slicing**: (Deferred) Coronal/Sagittal views for detailed inspection.
 
 ## 🧬 Gene Expression Integration (Planned)
 
@@ -65,10 +66,14 @@
 - [ ] **Performance**: Streamlines can be heavy. Implement downsampling (e.g., show only 10% of fibers) if rendering becomes too slow.
 
 ## ✅ Completed
+- [x] **📦 Modern Packaging**: Implemented `pyproject.toml` and standard installation via `pip install -e .`.
+- [x] **🚀 v4.0 Architecture Overhaul**: Centralized logging, robust path management, redundancy removal, and test suite restoration.
 - [x] **Native Workflow**: Automatic metadata fixing (`fix_volume_metadata.py`).
 - [x] **Alignment System**: Consistent alignment for Raw and Filtered clouds using Fixed Pivot.
 - [x] **GUI Redesign**: Improved layout with Top/Bottom bars and CSV auto-detection.
 - [x] **Documentation**: Comprehensive `TUTORIAL.md` and updated README.
+- [x] **Advanced Testing Suite**: Robust `pytest` integration with Global Mocking for Viewer interactions.
+- [x] **Critical Bugfix**: Resolved Projection Cloud Rendering misalignment regression.
 
 ## ⚠️ Developer Notes (CRITICAL)
 - **Manual Alignment Controls**: The manual shift (`SHIFT_X/Y/Z`) and rotation (`ROTATE_X/Y/Z`) constants in `src/viewer/rendering.py` **MUST BE PRESERVED**. Even if the native workflow works, the user requires the ability to manually fine-tune the alignment at any time. **DO NOT REMOVE THIS LOGIC.**

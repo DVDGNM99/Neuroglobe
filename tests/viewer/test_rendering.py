@@ -7,12 +7,17 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 # Mock vedo and brainrender BEFORE importing rendering
+# Mock vedo and brainrender BEFORE importing rendering
 with patch.dict(sys.modules, {
     'vedo': MagicMock(),
     'brainrender': MagicMock(),
-    'brainglobe_atlasapi': MagicMock()
+    'brainglobe_atlasapi': MagicMock(),
+    'brainrender.actors': MagicMock(),
+    'brainrender.settings': MagicMock()
 }):
-    from src.viewer import rendering
+    # Mock the config loader before importing rendering
+    with patch('src.viewer.rendering.load_visual_config', return_value={}):
+        from src.viewer import rendering
 
 @patch('src.viewer.rendering.BrainGlobeAtlas')
 @patch('src.viewer.rendering.Scene')

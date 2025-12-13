@@ -1,33 +1,52 @@
 # --- Python & System ---
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# --- Environments ---
-envs/
-.venv/
+# --- Build & Distribution ---
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# --- Environments & IDEs ---
+.env
+.venv
+env/
 venv/
 .vscode/
+.idea/
+.spyderproject
+.spyproject/
+
+# --- Testing ---
+.coverage
+htmlcov/
+.pytest_cache/
+test_log.txt
+*_log.txt
+
+# --- Logs ---
+logs/
+*.log
 
 # --- Data Handling ---
-# 1. Ignora la cartella raw (troppo pesante)
+# Ignore all raw and processed data
 data/raw/
 data/processed/
-data/processed/
+
+
+# Large file extensions
 *.nrrd
 *.vtk
 *.vti
-
-# 2. Ignora tutti i CSV in processed...
-# data/processed/*.csv
-# 3. ...MA TIENI questo specifico file come template!
-!data/processed/DR_demo_filtered.csv
+*.h5
+*.swc
 
 # --- Scenes / Output ---
-# Se vuoi tenere gli screenshot come demo, NON ignorare la cartella scenes.
-# Oppure, se vuoi ignorare le future ma tenere quelle attuali, usa:
+# Ignore generated screenshots and scene exports
 scenes/
-# !scenes/DR_2025-*/   <-- Esempio se volessi salvarne una specifica
-# Per ora, dato che vuoi usarle come template, commentiamo l'ignore:
-

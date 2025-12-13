@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neuroglobe"
+version = "3.0.0"
+description = "Advanced 3D Viewer for Allen Brain Atlas Connectivity"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+  {name = "NeuroGlobe Team"}
+]
+keywords = ["neuroscience", "atlas", "brainrender", "vtk"]
+
+dependencies = [
+    "allensdk>=2.16.2",
+    "brainrender>=2.1.16",
+    "vedo>=2025.5.4",
+    "pandas>=1.5.3",
+    "pyyaml>=6.0",
+    "matplotlib>=3.5.0",
+    "seaborn",
+    "numpy",
+    "ipykernel",
+    "jupyter",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-v --tb=short"
+testpaths = ["tests"]
+python_files = "test_*.py"
+log_cli = true
+log_cli_level = "INFO"

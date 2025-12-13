@@ -1,8 +1,15 @@
 import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.colorbar as cbar
 import argparse
+
+from src.logger_config import log
 
 def show_legend(vmin, vmax, colormap="viridis"):
     # Setup figure for the legend
@@ -20,7 +27,7 @@ def show_legend(vmin, vmax, colormap="viridis"):
     
     fig.canvas.manager.set_window_title('Neuroglobe Legend')
     
-    print(f"Showing legend: {vmin} - {vmax}")
+    log.info(f"Showing legend: {vmin} - {vmax}")
     plt.show()
 
 if __name__ == "__main__":

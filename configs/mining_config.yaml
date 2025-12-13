@@ -1,7 +1,7 @@
 experiment:
   # The source region for injection (e.g., Primary Motor Area)
   # Reference: http://atlas.brain-map.org/
-  seed_acronym: "DR"
+  seed_acronym: "CA1"
   
   # Regex pattern to select target regions. ".*" selects everything.
   # "^VIS" would select all visual areas.
@@ -22,14 +22,14 @@ selection:
   
   # Lista esatta delle aree che vuoi vedere
   custom_targets:
-    - "MOp"      # M1 (Primary Motor)
-    - "MOs"      # M2 (Secondary Motor)
-    - "SSp-bfd"  # S1 (Primary Somatosensory - Barrel Field)
-    - "SSs"      # S2 (Supplemental Somatosensory)
-    - "VISp"     # V1 (Primary Visual)
-    - "RSPd"     # Retrosplenial (Dorsal)
-    - "PL"       # PFC (Prelimbic - parte della Prefrontale)
-    - "ACA"      # Anterior Cingulate (spesso associata a PFC)
+    - "SSp-ul"      # M1 (Primary Motor)
+    - "CP"      # M2 (Secondary Motor)
+    - "AUDp"  # S1 (Primary Somatosensory - Barrel Field)
+    #- "SSs"      # S2 (Supplemental Somatosensory)
+    #- "VISp"     # V1 (Primary Visual)
+    #- "RSPd"     # Retrosplenial (Dorsal)
+    #- "PL"       # PFC (Prelimbic - parte della Prefrontale)
+    #- "ACA"      # Anterior Cingulate (spesso associata a PFC)
 
 quality_control:
   # Minimum injection volume (mm3) to include an experiment

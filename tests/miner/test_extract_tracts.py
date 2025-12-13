@@ -9,50 +9,42 @@ sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from src.miner import extract_tracts
 
 @patch('src.miner.extract_tracts.MouseConnectivityCache')
-@patch('src.miner.extract_tracts.shutil.copy')
-def test_fetch_and_process_tracts_nrrd(mock_copy, mock_mcc):
+def test_fetch_and_process_tracts_nrrd(mock_mcc):
     # Setup
     experiment_id = 100
+    mcc_instance = mock_mcc.return_value
     
-    # Mock glob to return a .nrrd file
-    with patch('pathlib.Path.glob') as mock_glob:
-        mock_glob.return_value = [Path('data/raw/experiment_100/density.nrrd')]
+    # Mock return value of get_projection_density
+    # It returns (data_array, metadata_dict)
+    mcc_instance.get_projection_density.return_value = (MagicMock(), {'resolution': [25, 25, 25]})
+
+    # Mock SimpleITK (it's imported inside the function, so we need to mock it in sys.modules)
+    with patch.dict(sys.modules, {'SimpleITK': MagicMock()}):
+        # Run
+        result = extract_tracts.fetch_and_process_tracts(experiment_id)
         
-        # Mock exists to return True for experiment dir
-        with patch('pathlib.Path.exists') as mock_exists:
-            mock_exists.return_value = True
-            
-            # Run
-            result = extract_tracts.fetch_and_process_tracts(experiment_id)
-            
-            # Verify
-            assert result is True
-            mock_copy.assert_called()
+        # Verify
+        assert result is True
+        mcc_instance.get_projection_density.assert_called_with(experiment_id)
 
 @patch('src.miner.extract_tracts.MouseConnectivityCache')
-@patch('src.miner.extract_tracts.shutil.copy')
-def test_fetch_and_process_tracts_mhd(mock_copy, mock_mcc):
+def test_fetch_and_process_tracts_mhd(mock_mcc):
     # Setup
     experiment_id = 101
+    mcc_instance = mock_mcc.return_value
     
-    # Mock glob to return .mhd file (and empty .nrrd)
-    with patch('pathlib.Path.glob') as mock_glob:
-        def glob_side_effect(pattern):
-            if pattern == "*.nrrd": return []
-            if pattern == "*.mhd": return [Path('data/raw/experiment_101/density.mhd')]
-            return []
-        mock_glob.side_effect = glob_side_effect
+    # Mock projection density success
+    mcc_instance.get_projection_density.return_value = (MagicMock(), {'resolution': [25, 25, 25]})
+    
+    # Mock API presence for energy download
+    mcc_instance.api = MagicMock()
+    mcc_instance.api.download_projection_energy = MagicMock()
+    
+    # Mock SimpleITK
+    with patch.dict(sys.modules, {'SimpleITK': MagicMock()}):
+        # Run
+        result = extract_tracts.fetch_and_process_tracts(experiment_id)
         
-        with patch('pathlib.Path.exists') as mock_exists:
-            mock_exists.return_value = True
-            
-            # Mock file reading/writing for header patch
-            with patch('builtins.open', mock_open(read_data="ElementDataFile = density.raw\nSomeOtherData")) as mock_file:
-                
-                # Run
-                result = extract_tracts.fetch_and_process_tracts(experiment_id)
-                
-                # Verify
-                assert result is True
-                # Check if file was opened for writing (patching)
-                assert mock_file.call_count >= 2 # Read + Write
+        # Verify
+        assert result is True
+        mcc_instance.api.download_projection_energy.assert_called()

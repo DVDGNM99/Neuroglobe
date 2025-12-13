@@ -1,0 +1,36 @@
+# --- Core Dependencies (from allensdk) ---
+python==3.10.*
+numpy==1.23.5
+pandas==1.5.3
+tables==3.9.2
+pytest==9.0.2
+allensdk==2.16.2
+pathlib
+
+# --- Rendering / Visualization (from brainglobe_render) ---
+scipy==1.15.2
+pytables
+pyqt
+vtk==9.2.6
+pyvista
+vedo==2025.5.4
+k3d==2.17.0
+brainglobe-atlasapi==2.1.0
+brainglobe-utils==0.6.3
+pytest-cov
+rich==14.2.0
+typer==0.20.0
+pydantic
+napari==0.6.6
+
+# --- Pip Specific ---
+brainrender==2.1.16
+morphapi
+brainglobe-space
+
+# --- Jupyter Analysis ---
+matplotlib>=3.5.0
+seaborn
+ipykernel
+jupyter
+pyyaml>=6.0

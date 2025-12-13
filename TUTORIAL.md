@@ -21,6 +21,7 @@ cd path/to/neuroglobe-antigravity
 
 **A. Mining Environment (for downloading data)**
 ```bash
+# Includes: allensdk, pandas, jupyter, pytest
 conda env create -f envs/allensdk.yml
 ```
 
@@ -102,6 +103,20 @@ python src/viewer/main.py
     - **Shift + Click**: Select a brain region (*Coming Soon - currently disabled*).
 - **Controls**: Use the GUI panel to toggle visibility, change transparency, or switch visualization modes (Density Raw vs Filtered).
 
+### D. Saving & Exporting
+- **Save Session**: Press **'S'** at any time. This creates a timestamped folder in `scenes/` containing:
+    - **Screenshot**: High-resolution PNG.
+    - **Metadata**: JSON file with experiment details.
+    - **Geometry (OBJ)**: A merged `.obj` file of the scene geometry.
+
+#### 🎨 Professional Workflow (High-Quality SVG)
+To generate publication-quality vector graphics:
+1.  Render your scene and press **'S'** to export the `.obj` file.
+2.  Import the `.obj` file into **Blender**.
+3.  Use Blender's **Grease Pencil (Line Art)** or **Freestyle** engine to trace the geometry.
+4.  Export the result as SVG from Blender.
+This method ensures perfect vector lines without the artifacts common in direct 3D-to-SVG exports.
+
 ---
 
 ## 4. 📂 Project Structure & File Guide
@@ -111,7 +126,7 @@ Here is a detailed breakdown of the project files and what they do.
 ### 📁 `configs/`
 *   `mining_config.yaml`: **[USER EDITABLE]** Controls which brain region to mine (Seed) and which regions to filter for.
 *   `regions.json`: Defines the colors and acronyms for brain regions displayed in the viewer.
-*   `visual_config.yaml`: Settings for the 3D renderer (background color, camera speed, etc.).
+*   `visual_config.yaml`: **[USER EDITABLE]** Settings for the 3D renderer (background color, camera speed, etc.) and manual alignment.
 
 ### 📁 `src/miner/`
 *   `fetch.py`: Queries the Allen API for experiments matching the config.
@@ -121,8 +136,9 @@ Here is a detailed breakdown of the project files and what they do.
 
 ### 📁 `src/viewer/`
 *   `main.py`: **[ENTRY POINT]** The main application script. Initializes the GUI and Renderer.
+*   `gui.py`: **[GUI]** Handles the DearPyGui layout and user interactions.
+*   `controller.py`: **[LOGIC]** Manages application state and coordinates between GUI and Rendering.
 *   `rendering.py`: **[CORE ENGINE]** Handles all 3D rendering logic (BrainGlobe/Vedo), actor management, and alignment.
-    *   *Contains Manual Fine-Tuning constants (`SHIFT_X`, `ROTATE_Y`, etc.).*
 *   `filter_tracts.py`: A script to spatially filter the projection cloud to specific target regions (creates `filtered_tracts.vtk`).
 *   `logic.py`: Helper functions for viewer logic.
 *   `show_legend.py`: Handles the colorbar/legend display.
@@ -154,8 +170,35 @@ Here is a detailed breakdown of the project files and what they do.
 A: You are viewing the raw `.nrrd` file. Run `scripts/fix_volume_metadata.py` to create a correctly scaled `_fixed.vtk` file.
 
 **Q: The projection is the right size but slightly shifted.**
-A: Open `src/viewer/rendering.py` and adjust the `SHIFT_X`, `SHIFT_Y`, `SHIFT_Z` constants at the top of the file.
-**Note:** The viewer uses a **Fixed Pivot** (Raw Cloud Center) for rotations. This ensures that if you adjust `ROTATE_Y`, both the Raw and Filtered clouds move together perfectly. Do not remove this logic.
+A: Open `configs/visual_config.yaml` and adjust the `manual_shift` (x, y, z) values.
+**Note:** The viewer uses a **Fixed Pivot** (Raw Cloud Center) for rotations. This ensures that if you adjust `manual_rotation`, both the Raw and Filtered clouds move together perfectly.
 
 **Q: "Module not found" errors.**
 A: Ensure you have activated the correct environment (`brainglobe_render` for viewer, `neuroglobe` for miner).
+---
+
+## 6. 👨‍💻 Developer Guide
+
+### Logs
+The application now logs extensive details to `logs/app_YYYY-MM-DD.log`.
+- **INFO**: Standard operations (files loaded, scenes rendered).
+- **WARNING**: Non-critical issues (missing configs, slight misalignments).
+- **ERROR**: Critical failures (API errors, missing dependencies).
+
+Check this file first if something goes wrong.
+
+### Testing
+To run the developer tests:
+1.  **Recommended Method** (easiest):
+    ```bash
+    conda run -n allensdk pytest
+    ```
+2.  **Manual Method**:
+    ```bash
+    conda activate allensdk
+    pytest
+    ```
+3. See [TESTING_WORKFLOW.md](TESTING_WORKFLOW.md) for full details.
+
+### Changelog
+For a technical deep-dive into the latest changes, see [UPDATE4.0.md](UPDATE4.0.md).

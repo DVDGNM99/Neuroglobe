@@ -1,13 +1,16 @@
-import shutil
+import yaml
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
-import yaml
+
+from src.definitions import PROJECT_ROOT, RAW_DATA_DIR, TRACTS_DIR, CONFIGS_DIR
+from src.logger_config import log
 
 # --- CONFIGURATION ---
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-CONFIG_PATH = PROJECT_ROOT / "configs" / "mining_config.yaml"
-DATA_RAW_PATH = PROJECT_ROOT / "data" / "raw"
-DATA_PROCESSED_TRACTS = PROJECT_ROOT / "data" / "processed" / "tracts"
+# --- CONFIGURATION ---
+# PROJECT_ROOT is imported from src.definitions
+CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
+DATA_RAW_PATH = RAW_DATA_DIR
+DATA_PROCESSED_TRACTS = TRACTS_DIR
 
 def load_config():
     with open(CONFIG_PATH, 'r') as f:
@@ -20,7 +23,7 @@ def fetch_and_process_tracts(experiment_id):
       - {id}_density.nrrd
       - {id}_energy.nrrd
     """
-    print(f"[TRACTS] Processing Experiment {experiment_id}...")
+    log.info(f"[TRACTS] Processing Experiment {experiment_id}...")
     
     # Initialize Cache
     mcc = MouseConnectivityCache(manifest_file=str(DATA_RAW_PATH / "manifest.json"))
@@ -30,13 +33,13 @@ def fetch_and_process_tracts(experiment_id):
     try:
         import SimpleITK as sitk
     except ImportError:
-        print("[ERROR] SimpleITK not found. Please install it in 'allensdk' env.")
+        log.error("[ERROR] SimpleITK not found. Please install it in 'allensdk' env.")
         return False
 
     success_count = 0
 
     # --- 1. PROJECTION DENSITY ---
-    print(f"  > Fetching projection_density...")
+    log.info(f"  > Fetching projection_density...")
     try:
         # Returns (data, dict)
         data, meta = mcc.get_projection_density(experiment_id)
@@ -54,13 +57,13 @@ def fetch_and_process_tracts(experiment_id):
             img.SetOrigin(meta['space origin'])
             
         sitk.WriteImage(img, str(dest_path))
-        print(f"    [OK] Saved {dest_path.name}")
+        log.info(f"    [OK] Saved {dest_path.name}")
         success_count += 1
     except Exception as e:
-        print(f"    [ERROR] Failed to fetch density: {e}")
+        log.error(f"    [ERROR] Failed to fetch density: {e}")
 
     # --- 2. PROJECTION ENERGY ---
-    print(f"  > Fetching projection_energy...")
+    log.info(f"  > Fetching projection_energy...")
     try:
         # Attempt to use internal API if public method doesn't exist
         # Note: This is a best-effort guess based on API structure
@@ -71,14 +74,12 @@ def fetch_and_process_tracts(experiment_id):
         # mcc.api is usually a GridDataApi
         if hasattr(mcc, 'api') and hasattr(mcc.api, 'download_projection_energy'):
             mcc.api.download_projection_energy(experiment_id, str(dest_path))
-    seed = cfg["experiment"]["seed_acronym"]
-    print(f"Finding experiments for seed: {seed}")
-    
-    exps, _ = get_experiments(seed, DATA_RAW_PATH)
-    
-    if not exps.empty:
-        first_id = exps.iloc[0]['id']
-        print(f"Testing download for Experiment ID: {first_id}")
-        fetch_and_process_tracts(first_id)
-    else:
-        print("No experiments found to test.")
+            log.info(f"    [OK] Saved {dest_name}")
+            success_count += 1
+        else:
+            log.warning("    [SKIP] Projection Energy API not available.")
+
+    except Exception as e:
+        log.warning(f"    [SKIP] Failed to fetch projection_energy (Optional): {e}")
+
+    return success_count > 0

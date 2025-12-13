@@ -4,10 +4,12 @@ Pure business logic for region loading/validation, CSV parsing and color mapping
 import json
 import pandas as pd
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
+
+from src.logger_config import log
 
 # --- Models ---
 @dataclass(frozen=True)
@@ -29,7 +31,7 @@ def load_regions_config(json_path: str) -> List[RegionItem]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
-        print(f"JSON Error: {e}")
+        log.error(f"JSON Error: {e}")
         return []
 
     items = []
@@ -57,20 +59,20 @@ def hex_to_rgb(hex_str: str) -> List[int]:
 def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict], float, float]:
     try:
         df = pd.read_csv(file_path)
-        # Check columns (supportiamo anche la nuova colonna is_seed opzionale)
+        # Check columns (support the new optional is_seed column)
         if 'acronym' not in df.columns or 'value' not in df.columns:
             raise ValueError("CSV must have 'acronym' and 'value' columns")
             
-        # Se is_seed non esiste (vecchi CSV), crealo come False
+        # If is_seed does not exist (old CSVs), create it as False
         if 'is_seed' not in df.columns:
             df['is_seed'] = False
             
     except Exception as e:
-        print(f"CSV Load Error: {e}")
+        log.error(f"CSV Load Error: {e}")
         return []
 
-    # 1. Normalize Values (Escludendo il seed per non sballare la scala!)
-    # Normalizziamo solo i target, altrimenti il seed (che ha valore altissimo) schiaccia tutti gli altri a zero.
+    # 1. Normalize Values (Excluding the seed to avoid skewing the scale!)
+    # Normalize only targets, otherwise the seed (which has very high value) flattens all others to zero.
     target_values = df[df['is_seed'] == False]['value'].values
     
     if len(target_values) > 0:
@@ -80,7 +82,7 @@ def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict
         v_min, v_max = 0.0, 1.0
         norm = mcolors.Normalize(vmin=0, vmax=1)
     
-    cmap = plt.get_cmap(colormap_name)
+    cmap = cm.get_cmap(colormap_name)
     
     results = []
     for _, row in df.iterrows():
@@ -99,10 +101,10 @@ def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict
             "is_seed": bool(row['is_seed'])
         })
         
-    # Mettiamo il SEED in cima alla lista così appare per primo nella GUI
+    # Put the SEED at the top of the list so it appears first in the GUI
     results.sort(key=lambda x: x['is_seed'], reverse=True)
         
-    # Mettiamo il SEED in cima alla lista così appare per primo nella GUI
+    # Put the SEED at the top of the list so it appears first in the GUI
     results.sort(key=lambda x: x['is_seed'], reverse=True)
         
     return results, v_min, v_max
@@ -129,5 +131,5 @@ def get_descendants(parent_acronym: str, atlas_name="allen_mouse_25um") -> List[
         
         return descendant_acronyms
     except Exception as e:
-        print(f"[LOGIC] Failed to get descendants for {parent_acronym}: {e}")
+        log.error(f"[LOGIC] Failed to get descendants for {parent_acronym}: {e}")
         return []

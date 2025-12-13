@@ -1,12 +1,16 @@
+import sys
 import yaml
 import pandas as pd
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 
+
+
+from src.definitions import CONFIGS_DIR, RAW_DATA_DIR
+from src.logger_config import log
+
 # --- Path Configuration ---
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-CONFIG_PATH = PROJECT_ROOT / "configs" / "mining_config.yaml"
-DATA_RAW_PATH = PROJECT_ROOT / "data" / "raw"
+CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
 
 def load_config():
     if not CONFIG_PATH.exists():
@@ -18,7 +22,7 @@ def get_experiments(seed_acronym: str, manifest_path: Path):
     """
     Queries the Allen API to find experiments with injection in the seed_acronym.
     """
-    print(f"Initializing MouseConnectivityCache at: {manifest_path}")
+    log.info(f"Initializing MouseConnectivityCache at: {manifest_path}")
     
     # The manifest file manages the downloaded data. 
     # resolution=25 matches the CCF version we use in BrainGlobe.
@@ -31,16 +35,16 @@ def get_experiments(seed_acronym: str, manifest_path: Path):
     try:
         seed_structure = ontology.get_structures_by_acronym([seed_acronym])[0]
         seed_id = seed_structure['id']
-        print(f"Target Seed: {seed_acronym} (ID: {seed_id})")
+        log.info(f"Target Seed: {seed_acronym} (ID: {seed_id})")
     except IndexError:
         raise ValueError(f"Region '{seed_acronym}' not found in Allen Ontology.")
 
     # 2. Find experiments
-    print("Querying experiments... (this might take a moment)")
+    log.info("Querying experiments... (this might take a moment)")
     experiments = mcc.get_experiments(dataframe=True, 
                                       injection_structure_ids=[seed_id])
     
-    print(f"Found {len(experiments)} experiments injected in {seed_acronym}")
+    log.info(f"Found {len(experiments)} experiments injected in {seed_acronym}")
     return experiments, mcc
 
 if __name__ == "__main__":
@@ -52,8 +56,8 @@ if __name__ == "__main__":
     DATA_RAW_PATH.mkdir(parents=True, exist_ok=True)
     
     # 3. Fetch
-    experiments_df, mcc_instance = get_experiments(seed, DATA_RAW_PATH)
+    experiments_df, mcc_instance = get_experiments(seed, RAW_DATA_DIR)
     
     # 4. Preview
-    print("\n--- Experiment Preview ---")
-    print(experiments_df[["id", "gender", "strain", "injection_volume"]].head())
+    log.info("\n--- Experiment Preview ---")
+    log.info(experiments_df[["id", "gender", "strain", "injection_volume"]].head())
