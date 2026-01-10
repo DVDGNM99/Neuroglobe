@@ -82,17 +82,6 @@ pip install -e .
 
 ---
 
-## 🧱 Architecture (v4.0)
-
-**Update 4.0** introduced a robust centralized architecture and modern packaging:
-
-- **Packaging**: The project is now a proper Python package (`pyproject.toml`).
-- **Logging**: All scripts now log to `logs/app_YYYY-MM-DD.log` via `src/logger_config.py`.
-- **Path Management**: `src/definitions.py` handles all absolute path resolution.
-- **Run Tests**: Use the `run_tests.bat` script for reliable execution.
-
----
-
 ## ⚙️ Configuration
 
 ### `configs/mining_config.yaml`
@@ -200,6 +189,7 @@ python src/viewer/main.py
 ```
 ### Visualization Features
 - **Brain Regions**: Render any brain region by acronym with custom colors.
+- **Hemisphere-Specific Visualization**: Toggle between **Mean**, **Ipsilateral**, **Contralateral**, or **Both** views to analyze callosal projections.
 - **Tractography**:
     - **Density (Raw)**: Full projection density cloud.
     - **Density (Filtered)**: Masked cloud showing only connections to selected regions.
@@ -219,7 +209,7 @@ python src/viewer/main.py
         -   `X`, `Y`, `Z`: Snap to Side, Front, Top views (Double-tap).
         -   `S`: **Save Session**. Creates a timestamped folder with:
             -   `screenshot_...png`: High-res capture.
-            -   `scene_geometry_...obj`: **Professional Workflow**. Exported geometry for high-quality SVG generation in Blender.
+
             -   `metadata.json`: Experiment details.
 -   **`filter_tracts.py`**: High-performance voxel masking script.
 
@@ -243,85 +233,4 @@ This automatically handles environment activation and error logging.
 - **`tests/viewer/`**: Tests UI logic and internal data structures.
 - **`tests/miner/`**: Verifies API fetching and data logic.
 
-# Update 4.0: Comprehensive Codebase Overhaul
-
-This major update consolidates all improvements from the Codebase Audit, Deep Vetting, and Test Suite Restoration phases. The goal was to eliminate technical debt, improve architectural stability, and restore the ability to verify code.
-
-## 1. Critical Fixes & Stability
-- **Fixed Redundancy in `src/viewer/gui.py`**: Removed a massive code duplication (entire `ViewerGUI` class defined twice). This halved the file size and eliminated "ghost bugs".
-- **Dead Code Removal**: Cleaned up `src/miner/extract_tracts.py`, removing broken/unreachable code blocks.
-- **Logic Optimization**: Refactored `src/viewer/logic.py` to use lightweight `matplotlib.cm` instead of the heavy stateful `pyplot` backend, improving startup performance.
-
-## 2. Centralized Architecture (New)
-A robust foundation was built to replace scattered ad-hoc solutions:
-- **Path Management (`src/definitions.py`)**: Centralized project path definitions (`PROJECT_ROOT`, `DATA_DIR`). Removed brittle `Path(__file__).parent.parent...` hacks from all modules.
-- **Logging System (`src/logger_config.py`)**: Replaced thousands of `print()` lines with a structured `logging` system.
-  - Logs are saved to `logs/app_YYYY-MM-DD.log`.
-  - Console output is now cleaner and prioritized (INFO/WARN/ERROR).
-
-## 3. Test Suite Restoration & Expansion
-The test suite has been fully debugged, restored, and expanded to cover critical functionalities. It is now the primary tool for verifying code stability.
-
-### Core Configuration
-- **`tests/conftest.py`**: Automatically configures `sys.path` to ensure seamless import of the `src` module.
-- **`pytest.ini`**: Standardized test execution flags (`-v`, `--tb=short`).
-- **`TESTING_WORKFLOW.md`**: Comprehensive guide for running tests in the `allensdk` environment.
-
-### Test Coverage
-#### Viewer Module (`tests/viewer/`)
-- **`test_logic.py`**: Verifies core application state and logic changes.
-- **`test_filter_tracts.py`**: Validates filtering mechanisms for tractography data.
-- **`test_rendering.py`**: Tests the rendering pipeline and actor generation.
-- **`test_rendering_modes.py`**: Ensures all visual modes (Glass, Solid, etc.) initialize correctly.
-
-#### Miner Module (`tests/miner/`)
-- **`test_extract_tracts.py`**: Checks the extraction logic for brain tract data.
-- **`test_fetch.py`**: Verifies data fetching and existence of required resources.
-- **`test_miner_analysis.py`**: Tests the statistical analysis and aggregation logic.
-
-## 4. Unification & Standardization
-- **Standardized Config Loading**: Refactored `viewer/filter_tracts.py` and `miner/miner_analysis.py` to use the unified configuration system instead of duplicating loading logic.
-- **Comment Translation**: Translated Italian comments to English in `src/miner` for a professional, consistent codebase.
-- **Clean Imports**: Fixed imports and unused dependencies across the `miner` module.
-
-## Summary of Files Changed
-- **New Files**: `src/definitions.py`, `src/logger_config.py`, `tests/conftest.py`, `pytest.ini`, `TESTING_WORKFLOW.md`
-- **Refactored**:
-  - `src/viewer/gui.py` (De-duplication)
-  - `src/viewer/controller.py` (Logging + Paths)
-  - `src/viewer/rendering.py` (Logging + Paths)
-  - `src/viewer/logic.py` (Optimization + Config)
-  - `src/viewer/filter_tracts.py` (Logging + Config)
-  - `src/miner/fetch.py` (Logging + Paths + Sys.path)
-  - `src/miner/aggregate.py` (Logging + Paths + Translation)
-  - `src/miner/miner_analysis.py` (Logging + Config)
-  - `tests/viewer/test_logic.py` (Fixes)
-
-## 5. Final Polish (Round 3)
-- **Consistency Check**: Performed a full codebase scan.
-- **Refactored Residuals**: Updated `src/miner/extract_tracts.py` (removed last hidden `print` and redundant path logic), `src/miner/fetch.py`, and `src/viewer/show_legend.py`.
-- **Standardized Scripts**: Updated `scripts/*.py` and `src/viewer/verify_*.py` to use the centralized logger and path logic.
-- **Verification**: Confirmed `analysis` folder is clean.
-- **Language**: Translated remaining Italian comments in `src/viewer/logic.py` to English.
-
-## 6. Audit & Refactoring Steps
-### Step 1: Packaging & Import Standardization
-- **Created `pyproject.toml`**: Defined the project as a modern, installable Python package.
-- **Removed Path Hacks**: Deleted manual `sys.path.append(...)` from `src/viewer/controller.py`, `src/miner/miner_analysis.py`, `src/miner/fetch.py`, and `tests/conftest.py`. The code now uses native Python imports.
-- **Verification**: All 21 tests passed using the new `run_tests.bat` script.
-
-### Step 2: Code Quality (Type Hints & Docstrings)
-- **Enhanced `viewer/controller.py`**: Added explicit Python type hints (e.g., `-> Tuple[bool, str]`) and Google-style docstrings to all methods in the `ViewerController` class.
-- **Removed Dead Code**: Cleaned up commented-out legacy save logic in `controller.py`.
-- **Verification**: `pytest` passed (21 tests).
-
-### Step 3: Cleanup & Configurations
-- **Removed Code Smells**: Deleted duplicate CSV save line in `src/miner/miner_analysis.py`.
-- **Centralized Config**: Moved hardcoded `DEFAULT_ALPHA` (0.8) from `controller.py` to `configs/visual_config.yaml`. The viewer now dynamically loads this setting.
-- **Verification**: `pytest` passed (21 tests).
-
-### Step 4: Final Standardization
-- **Dependencies**: Created `envs/requirements.txt` to mirror `pyproject.toml` for non-Conda users.
-- **Documentation**: Updated `README.md`, `ROADMAP.md`, `TESTING_WORKFLOW.md`, and `TUTORIAL.md` to reflect the new packaging style.
-- **Cleanup**: Proposed cleanup of temporary log and cache files (`.egg-info`, `_log.txt`).
 

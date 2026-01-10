@@ -166,20 +166,10 @@ class ViewerController:
                      seed_name: str, 
                      is_csv_seed: bool, 
                      show_legend: bool = True, 
+                     data_mode: str = "Mean",
                      status_callback: Optional[Callable[[str], None]] = None) -> Tuple[bool, str]:
         """
         Orchestrates the rendering of the 3D Scene.
-        
-        Args:
-            selection: List of selected regions (dicts).
-            viz_mode: Visualization mode ('None', 'Density (Raw)', etc.).
-            seed_name: Acronym of the seed region.
-            is_csv_seed: Whether the seed was loaded via CSV.
-            show_legend: Whether to display the scalar bar.
-            status_callback: Function to report status.
-            
-        Returns:
-            Tuple (Success Boolean, Status Message).
         """
         engine = self.get_lazy_engine(status_callback)
         
@@ -251,6 +241,7 @@ class ViewerController:
             "tract_file_used": tract_path.name if tract_path else "None",
             "metric_used": metric,
             "viz_mode": viz_mode,
+            "data_mode": data_mode, # Track which mode was used
             "targets_rendered": [s['acronym'] for s in selection if s['acronym'] != seed_name],
             "alpha_used": alpha,
             "scalar_min": self.current_scalar_min,
@@ -260,8 +251,6 @@ class ViewerController:
         if status_callback: status_callback("Rendering... Press 'S' to save scene.")
         
         # Rendering call
-        # We pass self.scenes_dir as the base output directory. 
-        # The renderer will create the specific timestamped folder when 'S' is pressed.
         engine.render_scene(
             selection, 
             tract_file=tract_path, 
@@ -269,7 +258,8 @@ class ViewerController:
             output_dir=self.scenes_dir, 
             metadata=metadata, 
             visualization_mode=viz_mode,
-            show_legend=show_legend
+            show_legend=show_legend,
+            data_mode=data_mode # Pass mode to Engine
         )
         
         return True, "Status: Render Complete (Press 'S' to save)"

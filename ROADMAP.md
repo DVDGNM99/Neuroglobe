@@ -1,79 +1,57 @@
 # 🗺️ Project Roadmap
 
-## 🚧 In Progress
-- [ ] **Advanced Analysis**: Inter-animal variability, normalized connectivity indices.
-<!-- Deferred Features -->
-<!-- - [ ] **Viewer Enhancements**: Click-to-Info, 2D Slicing (Moved to Future) -->
+## � Urgent Priorities (High Impact)
 
+### 1. Hemisphere-Specific Data Aggregation (Medium Complexity)
+**Goal:** Distinguish Ipsilateral (Right) vs. Contralateral (Left) connectivity, avoiding the flattened "Mean".
 
-## 🔮 Future Improvements (Todo)
+- [x] **Miner Update (`aggregate.py`)**: Group by `['acronym', 'hemisphere_id']` and pivot to `value_ipsi`, `value_contra`, `value_mean`.
+- [x] **GUI Update (`main.py`)**: Add toggle `[ MEAN | IPSI | CONTRA ]` to switch coloring dynamically.
+- [x] **Impact**: Allows scientifically accurate distinction of callosal projections.
 
-### ⛏️ Miner & Data
-- [ ] **Advanced Metadata Scraping**: Investigate additional available fields in the Allen API (e.g., exact injection coordinates, detailed transgenic line info).
-- [ ] **Metadata Utilization**: Implement a system to save and use this extra metadata for advanced filtering and analysis.
-- [ ] **2D Image Download**: Fetch high-res 2D images of injection sites for visual verification.
-- [ ] **Multi-Experiment Analysis**: Automate aggregation of datasets (e.g., all males vs females) for group studies.
-- [ ] **Smart Caching**: Implement hash-based checks to prevent re-downloading existing or corrupted data.
-- [ ] **Gene Expression Integration**: Cross-reference connectivity data with Allen Gene Expression Atlas data.
+### 2. Allen Streamlines Integration (Medium Complexity)
+**Goal:** Visualize single-cell-like calculated streamlines to complement density clouds (fMOST style).
 
-### 💾 Saving & Export
-- [x] **Fix Auto-Save Behavior**: Ensure scenes/metadata are saved **ONLY** when 'S' is pressed. Prevent automatic saving on viewer launch/exit.
-- [x] **Professional Geometry Export (OBJ)**: Implemented `.obj` export (merged geometry) when 'S' is pressed to enable high-quality SVG generation in Blender (replacing direct unstable SVG export).
+- [ ] **Miner Update (`extract_tracts.py`)**: Fetch `projection_lines` (JSON) from Allen API.
+- [ ] **Rendering Logic**: Update `rendering.py` to support `.json` actors using `brainrender` style (lines vs meshes).
+- [ ] **Performance**: Implement downsampling for heavy tracts.
 
-### 🏗️ Architecture & Refactoring (Completed v4.0)
-- [x] **Refactor Viewer Architecture**: Split `src/viewer/main.py` into `gui.py` (layout) and `controller.py` (logic) to decouple UI from business logic.
-- [x] **Clean up `filter_tracts.py`**: Remove duplicated code blocks and extract file/config helpers to a shared utility module.
-- [x] **Centralize Configuration**: Move hardcoded constants (e.g., alignment shifts in `rendering.py`) to external config files (YAML/JSON) to avoid editing source code.
-- [x] **Unified Data Manager**: Create a `DataManager` class to handle all file I/O (finding tracts, loading CSVs, saving scenes) centrally.
+### 3. Variance & Statistical Confidence (Low Complexity)
+**Goal:** Identify reliable biological targets by analyzing inter-animal variability.
 
-### 🖥️ GUI & Visualization
-- [x] **Legend Toggle Button**: Add a GUI button to optionally load/display the heatmap colorbar (legend) upon rendering, instead of showing it by default.
+- [ ] **Miner Update**: Calculate `std` (standard deviation) alongside `mean`.
+- [ ] **Analysis Notebook**: Visualize Confidence (Mean vs Variance) and filter by Coefficient of Variation.
+
+---
+
+## 🟢 Low Complexity (Quick Wins)
+
+### Data & Mining
+- [ ] **Advanced Metadata Scraping**: Investigate additional fields (e.g., exact injection coordinates, transgenic line info).
+- [ ] **Metadata Utilization**: Save and use extra metadata for filtering.
+- [ ] **2D Image Download**: Fetch high-res 2D images of injection sites.
+- [ ] **Smart Caching**: Hash-based checks to prevent re-downloading existing data.
+
+---
+
+## 🟡 Medium Complexity (Enhancements)
+
+### Visualization
 - [ ] **Click-to-Info**: (Deferred) Select a brain region to see statistics.
 - [ ] **2D Slicing**: (Deferred) Coronal/Sagittal views for detailed inspection.
+- [ ] **Multi-Experiment Analysis**: Automate aggregation of datasets (e.g., all males vs females).
 
-## 🧬 Gene Expression Integration (Planned)
+---
 
-### 1. Dedicated Miner (`src/miner/gene_miner.py`)
-- [ ] **API Integration**: Create a separate miner using AllenSDK `MouseGeneExpressionCache` (GridDataApi) distinct from the connectivity miner.
-- [ ] **Data Fetching**: Implement downloading of 3D expression volumes (Energy/Density) for specific genes (e.g., *Tph2*, *Slc6a4*).
-- [ ] **Storage Strategy**:
-    - **Location**: `data/processed/gene_expression/` (separate from `tracts`).
-    - **Structure**: Subfolders by Gene Symbol (e.g., `.../gene_expression/tph2/`).
-    - **Format**: Save raw `.nrrd` volumes and metadata JSONs.
+## 🔴 High Complexity (Long Term)
 
-### 2. Data Processing
-- [ ] **Voxelization**: Convert raw continuous expression volumes into discrete voxel coordinates (X, Y, Z, Value) to prepare for "Lego" style rendering.
-- [ ] **Thresholding**: Implement logic to filter voxels below a certain expression level to reduce noise and improve performance.
+### 🧬 Gene Expression Integration
+**Goal:** Cross-reference connectivity with Gene Expression Atlas data.
 
-### 3. Visualization (Voxel/Lego Style)
-- [ ] **Voxel Actor**: Implement a new rendering mode in `src/viewer/rendering.py` to visualize data as "Lego Blocks" (cubes) matching the [Brainrender style](https://github.com/brainglobe/brainrender).
-- [ ] **Colormapping**: Apply gene-specific colormaps (e.g., Red for Gene A, Blue for Gene B) to allow multi-gene comparison.
-- [ ] **UI Integration**: Add a "Gene Search" box in the GUI to fetch/load gene data dynamically.
+- [ ] **Dedicated Miner (`gene_miner.py`)**: Fetch 3D expression volumes (Energy/Density) for specific genes (*Tph2*, *Slc6a4*).
+- [ ] **Data Processing**: Voxelize continuous volumes into discrete coordinates.
+- [ ] **Lego-Style Visualization**: Implement Voxel/Lego rendering mode (cubes) with gene-specific colormaps.
+- [ ] **GUI Integration**: "Gene Search" box to load genes dynamically.
 
-## 🌊 Projection Streamlines (Planned)
-
-### 1. Miner Update (`src/miner/extract_streamlines.py`)
-- [ ] **Data Source**: The current volumetric data (`.nrrd`) is **NOT** suitable for streamline visualization. We must fetch vector data (JSON/SWC) from the Allen API.
-- [ ] **Implementation**: Add a new script or update `extract_tracts.py` to download `projection_lines` (streamlines) for the experiment ID.
-- [ ] **Storage**: Save as `{experiment_id}_streamlines.json` in `data/processed/tracts/`.
-
-### 2. Visualization Logic
-- [ ] **Actor Implementation**: Refine the existing (but unused) `Streamlines` logic in `src/viewer/rendering.py` to properly load and render the JSON files.
-- [ ] **Styling**: Match the "Brainrender Style" (as seen in the requested image):
-    - **Thickness**: Adjust tube radius for visibility.
-    - **Coloring**: Allow coloring by target region or injection source.
-    - **Opacity**: Implement transparency to see deep structures.
-- [ ] **Performance**: Streamlines can be heavy. Implement downsampling (e.g., show only 10% of fibers) if rendering becomes too slow.
-
-## ✅ Completed
-- [x] **📦 Modern Packaging**: Implemented `pyproject.toml` and standard installation via `pip install -e .`.
-- [x] **🚀 v4.0 Architecture Overhaul**: Centralized logging, robust path management, redundancy removal, and test suite restoration.
-- [x] **Native Workflow**: Automatic metadata fixing (`fix_volume_metadata.py`).
-- [x] **Alignment System**: Consistent alignment for Raw and Filtered clouds using Fixed Pivot.
-- [x] **GUI Redesign**: Improved layout with Top/Bottom bars and CSV auto-detection.
-- [x] **Documentation**: Comprehensive `TUTORIAL.md` and updated README.
-- [x] **Advanced Testing Suite**: Robust `pytest` integration with Global Mocking for Viewer interactions.
-- [x] **Critical Bugfix**: Resolved Projection Cloud Rendering misalignment regression.
-
-## ⚠️ Developer Notes (CRITICAL)
-- **Manual Alignment Controls**: The manual shift (`SHIFT_X/Y/Z`) and rotation (`ROTATE_X/Y/Z`) constants in `src/viewer/rendering.py` **MUST BE PRESERVED**. Even if the native workflow works, the user requires the ability to manually fine-tune the alignment at any time. **DO NOT REMOVE THIS LOGIC.**
+---
+*Note: Completed achievements have been archived to keep the roadmap focused.*

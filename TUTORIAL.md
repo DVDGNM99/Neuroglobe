@@ -1,204 +1,151 @@
-# 📘 NeuroGlobe Antigravity - Project Tutorial
+# 📘 Technical Reference & Project Map
 
-This guide provides step-by-step instructions on how to set up, run, and understand the NeuroGlobe Antigravity project.
-
----
-
-## 1. 🛠 Environment Setup
-
-The project uses two separate Conda environments to avoid dependency conflicts between the AllenSDK (mining) and BrainGlobe (rendering).
-
-### Prerequisites
-- **Anaconda** or **Miniconda** installed.
-- **Git** installed.
-
-### Step 1: Create Environments
-Open your terminal (Anaconda Prompt on Windows) and navigate to the project folder:
-
-```bash
-cd path/to/neuroglobe-antigravity
-```
-
-**A. Mining Environment (for downloading data)**
-```bash
-# Includes: allensdk, pandas, jupyter, pytest
-conda env create -f envs/allensdk.yml
-```
-
-**B. Rendering Environment (for the 3D Viewer)**
-```bash
-conda env create -f envs/brainglobe_render.yml
-```
-
-### Step 2: Activate Environments
-You will switch between these depending on what you are doing:
-
-- **To Mine Data**: `conda activate neuroglobe` (or whatever name is in allensdk.yml, usually `neuroglobe` or `allensdk`)
-- **To View Data**: `conda activate brainglobe_render`
+> **Note:** For Installation and Basic Usage, please refer to [README.md](README.md).
+> This document is intended for **Developers** and **Advanced Users** who need to understand the internal logic, file structure, and critical constraints of the codebase.
 
 ---
 
-## 2. ⛏️ Data Mining (The "Miner")
+## 📂 Source Code (`src/`)
 
-The Miner downloads tractography data from the Allen Mouse Brain Connectivity Atlas based on a "Seed" region.
+### 🔹 Core Infrastructure
+These files provide the foundation for the entire project.
 
-### A. Configure the Seed
-Open `configs/mining_config.yaml`.
-- Look for the `seed` or `source` parameter.
-- Change it to the acronym of the brain region you want to investigate (e.g., `DR` for Dorsal Raphe, `MOs` for Secondary Motor Area).
-- You can also define `targets` here for filtering.
+#### `src/definitions.py`
+**Purpose**: Central source of truth for all file paths.
+- **Capabilities**: Dynamically locates the project root using `pathlib`. Defines standard paths like `DATA_DIR`, `LOGS_DIR`, `SCENES_DIR`.
+- **Why it exists**: To replace brittle `../../` relative path hacks that broke when running scripts from different directories.
 
-### B. Run the Mining Pipeline
-**Activate the Mining Environment first!**
+> [!CAUTION]
+> **DO NOT modify `PROJECT_ROOT` logic.**
+> All other paths are derived from this. Any change here will break file loading across the entire Miner and Viewer. Always use `from src.definitions import ...` instead of hardcoding paths.
 
-The mining scripts are located in `src/miner`. Run them in this order:
-
-1.  **Fetch Experiments**: Finds experiments matching your seed.
-    ```bash
-    python src/miner/fetch.py
-    ```
-    *Output*: Saves metadata to `data/processed/`.
-
-2.  **Extract Tracts**: Downloads the volumetric projection data.
-    ```bash
-    python src/miner/extract_tracts.py
-    ```
-    *Output*: Downloads `.nrrd` files to `data/processed/tracts/`.
-
-3.  **Aggregate Data**: Combines connectivity data into a CSV.
-    ```bash
-    python src/miner/aggregate.py
-    ```
-    *Output*: `data/processed/DR_connectivity.csv` (or similar).
+#### `src/logger_config.py`
+**Purpose**: unified logging configuration.
+- **Capabilities**: Sets up a rotating file handler (`logs/app_YYYY-MM-DD.log`) and a console handler.
+- **Usage**: Import `setup_logger` and call it at the start of every script.
 
 ---
 
-## 3. 👁️ 3D Viewer
+### 🔹 The Miner (`src/miner/`)
+**Environment**: `allensdk`
 
-The Viewer visualizes the downloaded projection data in 3D space, registered to the Allen Atlas.
+#### `src/miner/fetch.py`
+**Purpose**: Queries the Allen API for available experiments.
+- **Critical Logic**: Uses `allensdk.core.mouse_connectivity_cache.MouseConnectivityCache`.
 
-### A. Prepare the Data (Native Workflow)
-**Activate the Rendering Environment!** (`conda activate brainglobe_render`)
+> [!WARNING]
+> **API Constraints**: parameters like `injection_structure_ids` are strictly validated by the AllenSDK. Ensure the acronyms match exactly what is in `configs/regions.json`.
 
-Raw downloaded data often has incorrect metadata (spacing). Before viewing, run the fix script:
+#### `src/miner/extract_tracts.py`
+**Purpose**: Downloads the 3D Projection Density Volume (`.nrrd`).
+- **Limitation**: The Allen API returns volumes with **1µm spacing** (metadata) but the actual data is often 25µm. This metadata mismatch necessitates the `fix_volume_metadata.py` script.
 
-```bash
-python scripts/fix_volume_metadata.py data/processed/tracts/YOUR_FILE.nrrd
-```
-*   **Input**: The raw `.nrrd` file from the miner.
-*   **Output**: A `_fixed.vtk` file (Mesh) correctly scaled to 25μm.
-*   **Why**: This ensures the projection cloud aligns perfectly with the brain atlas.
+> [!IMPORTANT]
+> **Do NOT rely on raw downloads.**
+> The downloaded files are often unusable in 3D viewers directly due to incorrect origin/spacing headers. Always run the fix script afterwards.
 
-### B. Launch the Viewer
-```bash
-python src/viewer/main.py
-```
+#### `src/miner/aggregate.py`
+**Purpose**: Aggregates pixel-level projection data into region-level statistics.
+- **Mechanism**: Groups data by `structure_acronym` and `hemisphere_id`.
+- **Filtering Logic (Strict)**: If `use_custom_targets: true` in `mining_config.yaml`:
+  1. Keeps only regions listed in `custom_targets`.
+  2. Keeps **only** the Primary Seed defined in `experiment.seed_acronym` (removing spillover injection regions).
+  3. Saves a separate `_filtered.csv` for clean visualization.
+- **Output**: Generates full `value_mean`, `value_ipsi`, `value_contra`, `value_left`, `value_right` metrics.
 
-### C. Using the Viewer
-- **Load Data**: The viewer automatically looks for the most recent data in `data/processed/tracts`.
-- **Navigation**:
-    - **Left Click + Drag**: Rotate
-    - **Middle Click + Drag**: Pan
-    - **Scroll**: Zoom
-    - **Shift + Click**: Select a brain region (*Coming Soon - currently disabled*).
-- **Controls**: Use the GUI panel to toggle visibility, change transparency, or switch visualization modes (Density Raw vs Filtered).
-
-### D. Saving & Exporting
-- **Save Session**: Press **'S'** at any time. This creates a timestamped folder in `scenes/` containing:
-    - **Screenshot**: High-resolution PNG.
-    - **Metadata**: JSON file with experiment details.
-    - **Geometry (OBJ)**: A merged `.obj` file of the scene geometry.
-
-#### 🎨 Professional Workflow (High-Quality SVG)
-To generate publication-quality vector graphics:
-1.  Render your scene and press **'S'** to export the `.obj` file.
-2.  Import the `.obj` file into **Blender**.
-3.  Use Blender's **Grease Pencil (Line Art)** or **Freestyle** engine to trace the geometry.
-4.  Export the result as SVG from Blender.
-This method ensures perfect vector lines without the artifacts common in direct 3D-to-SVG exports.
+> [!TIP]
+> **Why Filter?**
+> Allen experiments often have "injection spillover" into dozens of tiny sub-regions (e.g., layers of hippocampus). Without strict filtering, the Viewer would be flooded with 50+ "[SEED]" entries. The logic ensures you see only what you asked for.
 
 ---
 
-## 4. 📂 Project Structure & File Guide
+### 🔹 The Viewer (`src/viewer/`)
+**Environment**: `brainglobe_render`
 
-Here is a detailed breakdown of the project files and what they do.
+#### `src/viewer/main.py`
+**Purpose**: Entry point. Bootstraps the application.
+- **Logic**: Initializes `ViewerGUI`, `ViewerController`, and starts the DearPyGui (DPG) context.
 
-### 📁 `configs/`
-*   `mining_config.yaml`: **[USER EDITABLE]** Controls which brain region to mine (Seed) and which regions to filter for.
-*   `regions.json`: Defines the colors and acronyms for brain regions displayed in the viewer.
-*   `visual_config.yaml`: **[USER EDITABLE]** Settings for the 3D renderer (background color, camera speed, etc.) and manual alignment.
+> [!CAUTION]
+> **DPG Context Order**: `dpg.create_context()` must be called BEFORE any GUI setup. Do not move this initialization logic.
 
-### 📁 `src/miner/`
-*   `fetch.py`: Queries the Allen API for experiments matching the config.
-*   `extract_tracts.py`: Downloads the actual 3D projection density volumes (`.nrrd`).
-*   `aggregate.py`: Compiles connectivity scores into a single CSV file.
-*   `miner_analysis.py`: Performs statistical analysis on the mined data.
+#### `src/viewer/rendering.py`
+**Purpose**: The 3D Rendering Engine (BrainGlobe/Vedo wrapper).
+- **Capabilities**: Manages Actors (Brain Regions, Clouds), Scene Camera, and Exporting.
 
-### 📁 `src/viewer/`
-*   `main.py`: **[ENTRY POINT]** The main application script. Initializes the GUI and Renderer.
-*   `gui.py`: **[GUI]** Handles the DearPyGui layout and user interactions.
-*   `controller.py`: **[LOGIC]** Manages application state and coordinates between GUI and Rendering.
-*   `rendering.py`: **[CORE ENGINE]** Handles all 3D rendering logic (BrainGlobe/Vedo), actor management, and alignment.
-*   `filter_tracts.py`: A script to spatially filter the projection cloud to specific target regions (creates `filtered_tracts.vtk`).
-*   `logic.py`: Helper functions for viewer logic.
-*   `show_legend.py`: Handles the colorbar/legend display.
+> [!DANGER]
+> **CRITICAL: Alignment Logic**
+> The Viewer uses a **Fixed Pivot** system. It calculates the center of the `Raw Cloud` and applies all rotations around THAT point.
+> **DO NOT CHANGE** the rotation order or pivot logic. Doing so will desynchronize the "Filtered Cloud" from the "Raw Cloud", making the visualization scientifically invalid.
 
-### 📁 `scripts/`
-*   `check_volume_info.py`: Diagnostic tool. Prints metadata (spacing, origin) of a volume file.
-*   `fix_volume_metadata.py`: **[CRITICAL]** Converts raw `.nrrd` (1μm spacing) to `.vtk` (25μm spacing) for correct alignment.
+#### `src/viewer/controller.py`
+**Purpose**: The "Brain" of the application.
+- **Capabilities**: Handles user input events, loads data, and orchestrates the GUI and Renderer updates.
+- **State Management**: Keeps track of `current_region`, `loaded_file_path`, etc.
 
-### 📁 `data/processed/`
-*   `tracts/`: Stores the 3D data files.
-    *   `*.nrrd`: Raw volumetric data (Density). **Requires fixing.**
-    *   `*_fixed.vtk`: **[READY]** Fixed mesh data, correctly aligned. **The viewer prefers this.**
-    *   `*.vti`: Volumetric data (legacy format).
-*   `DR_connectivity.csv`: The main dataset containing connectivity strength between the Seed and all other regions.
+#### `src/viewer/filter_tracts.py`
+**Purpose**: High-performance spatial filtering.
+- **Logic**: Uses `numpy` boolean masking to zero out voxels that are NOT inside the target regions.
+- **Output**: Writes a temporary `.vtk` file (`filtered_tracts.vtk`) which is then loaded by the renderer.
 
-### 📁 `analysis/`
-*   `analisi_proiezioni_stat.ipynb`: Jupyter Notebook for advanced statistical analysis and plotting (e.g., correlation matrices, variability).
-*   `region_reference.csv`: A reference table of brain region names and IDs.
+### 4. Interpreting the Visualization
 
-### 📁 `envs/`
-*   `allensdk.yml`: Conda environment file for the Miner.
-*   `brainglobe_render.yml`: Conda environment file for the Viewer.
+The Viewer offers powerful tools to dissect connectivity data. Here is how to interpret what you see.
+
+#### Data Views (The Dropdown)
+Located in the Top Menu, the **"Data View"** dropdown allows you to toggle how projection density is mapped to color:
+
+| Mode | Description | Interpretation |
+| :--- | :--- | :--- |
+| **Mean** | Average of Left and Right hemisphere values. | Gives a general idea of connection strength but hides asymmetry. Result is symmetric coloring. |
+| **Ipsilateral** | Projections to the **same side** as the injection. | Shows the direct, local connectivity strength. Usually the strongest signal. |
+| **Contralateral** | Projections to the **opposite side** (crossing the corpus callosum). | Shows long-range, callosal connectivity. Usually weaker than Ipsilateral. |
+| **Both** | **The Truth View**. Splits the brain in half. | Left side shows Left data, Right side shows Right data. Perfect for visualizing **Asymmetry** (e.g., strong Ipsilateral vs weak Contralateral). |
+
+#### 🎨 Understanding Colors (Global Normalization)
+You might notice that colors appear "darker" or shift compared to previous versions. This is a feature, not a bug.
+
+**The Logic**:
+The Viewer uses **Global Normalization**. This means the color scale (Purple -> Green -> Yellow) is calculated based on the **Maximum Value in the entire dataset** (usually the peak Ipsilateral connection).
+
+- **Why?** To allow fair comparison. If "Green" meant 0.5 in one view and 0.01 in another, the visualization would be misleading.
+- **Result**:
+    - **Ipsilateral (Strong)**: Will reach the brighter colors (Yellow/Green).
+    - **Contralateral (Weak)**: Will likely stay in the darker range (Purple/Blue).
+    - **Mean (Average)**: Will appear as a mix (Teal/Blue).
+    
+**In "Both" Mode**:
+You may see a region that is **Bright Green** on the right and **Dark Purple** on the left. This visualizes lateralization: the region receives strong input on one side and almost none on the other.
 
 ---
 
-## 5. ❓ Troubleshooting
+## � Helper Scripts (`scripts/`)
 
-**Q: The projection cloud is a tiny dot.**
-A: You are viewing the raw `.nrrd` file. Run `scripts/fix_volume_metadata.py` to create a correctly scaled `_fixed.vtk` file.
+#### `scripts/fix_volume_metadata.py`
+**Purpose**: The "Bridge" between Allen Data and BrainGlobe Viewer.
+- **Operation**:
+    1. Reads `.nrrd`.
+    2. Overwrites Spacing to `(25, 25, 25)` microns.
+    3. Resets Origin to `(0, 0, 0)`.
+    4. Saves as `.vtk` (Mesh).
 
-**Q: The projection is the right size but slightly shifted.**
-A: Open `configs/visual_config.yaml` and adjust the `manual_shift` (x, y, z) values.
-**Note:** The viewer uses a **Fixed Pivot** (Raw Cloud Center) for rotations. This ensures that if you adjust `manual_rotation`, both the Raw and Filtered clouds move together perfectly.
+> [!TIP]
+> **Why VTK?**
+> We convert to VTK because `vedo` (the rendering backend) handles VTK meshes significantly faster and more accurately than raw NRRD volumes for this specific type of density cloud.
 
-**Q: "Module not found" errors.**
-A: Ensure you have activated the correct environment (`brainglobe_render` for viewer, `neuroglobe` for miner).
+#### `scripts/check_volume_info.py`
+**Purpose**: Debugging tool to inspect file headers.
+- **Use this if**: Your cloud looks like a tiny dot (implies Spacing=1 instead of 25).
+
 ---
 
-## 6. 👨‍💻 Developer Guide
+## 🧪 Tests (`tests/`)
 
-### Logs
-The application now logs extensive details to `logs/app_YYYY-MM-DD.log`.
-- **INFO**: Standard operations (files loaded, scenes rendered).
-- **WARNING**: Non-critical issues (missing configs, slight misalignments).
-- **ERROR**: Critical failures (API errors, missing dependencies).
+The test suite is your safety net.
+- **`tests/conftest.py`**: **Critical**. Sets up `sys.path` so tests can import `src` without installation errors.
+- **`run_tests.bat`**: The recommended way to run tests. It handles the environment context.
 
-Check this file first if something goes wrong.
+> [!NOTE]
+> **Mocking**:
+> The Viewer tests use **MagicMock** heavily to avoid opening a real window during testing. If you modify `rendering.py`, you MUST update the mocks in `test_rendering.py` or the tests will fail.
 
-### Testing
-To run the developer tests:
-1.  **Recommended Method** (easiest):
-    ```bash
-    conda run -n allensdk pytest
-    ```
-2.  **Manual Method**:
-    ```bash
-    conda activate allensdk
-    pytest
-    ```
-3. See [TESTING_WORKFLOW.md](TESTING_WORKFLOW.md) for full details.
-
-### Changelog
-For a technical deep-dive into the latest changes, see [UPDATE4.0.md](UPDATE4.0.md).

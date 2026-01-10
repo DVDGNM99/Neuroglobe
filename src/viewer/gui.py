@@ -7,7 +7,13 @@ class ViewerGUI:
         self.controller = controller
         self.rows = [] 
         
-    def add_row(self, acronym=None, color_hex=None, is_seed=False):
+        
+    def add_data_mode_toggle(self):
+         dpg.add_text("Data View:")
+         dpg.add_combo(items=["Mean", "Ipsilateral", "Contralateral", "Both"], 
+                       default_value="Mean", tag="combo_data_mode", width=150, callback=self.update_rows_color)
+
+    def add_row(self, acronym=None, color_hex=None, is_seed=False, user_data=None):
         idx = len(self.rows)
         row_tag = f"row_{idx}"
         
@@ -22,7 +28,7 @@ class ViewerGUI:
 
         with dpg.group(horizontal=True, parent="rows_container", tag=row_tag):
             dpg.add_combo(items=self.controller.choices, width=300, tag=f"{row_tag}_combo", default_value=def_combo_val)
-            dpg.add_color_edit(default_value=def_color_rgb, tag=f"{row_tag}_color", no_inputs=True, no_label=True, width=25)
+            dpg.add_color_edit(default_value=def_color_rgb, tag=f"{row_tag}_color", no_inputs=True, no_label=True, width=25, user_data=user_data)
             dpg.add_button(label="-", width=20, callback=lambda: self.delete_row(row_tag))
         self.rows.append(row_tag)
 
@@ -59,11 +65,35 @@ class ViewerGUI:
         self.clear_all_rows()
         limit = 500 
         count = 0
+        current_mode = dpg.get_value("combo_data_mode")
+
         for item in data:
             if count >= limit: break
-            self.add_row(acronym=item['acronym'], color_hex=item['color'], is_seed=item.get('is_seed', False))
+            
+            # Determine initial color based on current mode
+            color_key = f"color_{current_mode.lower()}"
+            if current_mode == "Both": color_key = "color_mean" 
+            
+            initial_color = item.get(color_key, item.get("color_mean", "#FFFFFF"))
+            
+            self.add_row(acronym=item['acronym'], color_hex=initial_color, is_seed=item.get('is_seed', False), user_data=item)
             count += 1
         dpg.set_value("status_text", f"Loaded {count} regions from CSV.")
+
+    def update_rows_color(self, sender, app_data):
+        """Updates the color box of all rows when mode changes."""
+        mode = app_data # Mean, Ipsi, etc.
+        suffix = mode.lower()
+        if mode == "Both": suffix = "mean" 
+        
+        key = f"color_{suffix}"
+        
+        for row in self.rows:
+            user_data = dpg.get_item_user_data(f"{row}_color")
+            if user_data and key in user_data:
+                new_hex = user_data[key]
+                new_rgb = logic.hex_to_rgb(new_hex) + [255]
+                dpg.set_value(f"{row}_color", new_rgb)
 
     def get_current_seed_info(self):
         seed_acronym = "ManualSelection"
@@ -137,14 +167,37 @@ class ViewerGUI:
 
     def run_render(self):
         selection = []
+        mode = dpg.get_value("combo_data_mode")
+
         for row in self.rows:
             combo_val = dpg.get_value(f"{row}_combo")
             if not combo_val or "|" not in combo_val: continue
             clean_val = combo_val.replace("[SEED] ", "")
             acronym = clean_val.split("|")[0].strip()
-            col_rgba = dpg.get_value(f"{row}_color")
-            col_hex = "#{:02x}{:02x}{:02x}".format(int(col_rgba[0]), int(col_rgba[1]), int(col_rgba[2]))
-            selection.append({"acronym": acronym, "color": col_hex})
+            
+            user_data = dpg.get_item_user_data(f"{row}_color")
+            item_config = {"acronym": acronym}
+            
+            if user_data:
+                # Fallback to mean/main color if specific hemisphere data is missing
+                mean_col = user_data.get("color_mean", user_data.get("color", "#FFFFFF"))
+                
+                if mode == "Both":
+                    item_config["color_left"] = user_data.get("color_left", mean_col)
+                    item_config["color_right"] = user_data.get("color_right", mean_col)
+                    item_config["color"] = mean_col # Fallback for base actor
+                else:
+                    suffix = mode.lower()
+                    item_config["color"] = user_data.get(f"color_{suffix}", mean_col)
+            else:
+                col_rgba = dpg.get_value(f"{row}_color")
+                col_hex = "#{:02x}{:02x}{:02x}".format(int(col_rgba[0]), int(col_rgba[1]), int(col_rgba[2]))
+                item_config["color"] = col_hex
+                if mode == "Both":
+                    item_config["color_left"] = col_hex
+                    item_config["color_right"] = col_hex
+            
+            selection.append(item_config)
 
         viz_mode = dpg.get_value("combo_viz_mode")
         seed_name, is_csv_seed = self.get_current_seed_info()
@@ -156,6 +209,7 @@ class ViewerGUI:
             seed_name, 
             is_csv_seed, 
             show_legend=show_legend,
+            data_mode=mode,
             status_callback=lambda msg: dpg.set_value("status_text", msg)
         )
         dpg.set_value("status_text", message)
@@ -175,6 +229,12 @@ class ViewerGUI:
                 dpg.add_combo(items=["Add Region (+)", "Add Group (+)", "Filter Tracts"], 
                               default_value="Select Action...", width=200, 
                               callback=self.process_manual_action, tag="combo_manual")
+                
+                dpg.add_spacer(width=20)
+                
+                dpg.add_spacer(width=20)
+                
+                self.add_data_mode_toggle() # NEW TOGGLE
                 
                 dpg.add_spacer(width=20)
                 

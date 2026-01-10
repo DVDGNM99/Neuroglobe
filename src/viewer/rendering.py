@@ -56,7 +56,7 @@ class RenderEngine:
 
 
 
-    def render_scene(self, region_config: list, tract_file: Path = None, alpha=0.5, output_dir: Path = None, metadata: dict = None, visualization_mode="density", show_legend=True):
+    def render_scene(self, region_config: list, tract_file: Path = None, alpha=0.5, output_dir: Path = None, metadata: dict = None, visualization_mode="density", show_legend=True, data_mode="Mean"):
         scene = Scene(atlas_name=self.atlas_name, title="")
         
         # --- 0. CONTEXT (ROOT) ---
@@ -76,15 +76,45 @@ class RenderEngine:
             log.warning(f"[WARN] Root load issue: {e}")
 
         # --- 1. Target Regions ---
-        log.info(f"Building scene with {len(region_config)} regions...")
+        log.info(f"Building scene with {len(region_config)} regions (Mode: {data_mode})...")
+        
+        midline_x = 5700 # Approximate CCFv3 midline
+
         for item in region_config:
+            acronym = item['acronym']
             try:
-                # Add region and capture the actor
-                reg_actor = scene.add_brain_region(item['acronym'], alpha=alpha, color=item['color'])
-                if reg_actor:
-                    # FORCE the name to be the acronym so picking works
-                    reg_actor.name = item['acronym']
-            except: pass
+                if data_mode == "Both":
+                    # --- SPLIT VIEW LOGIC ---
+                    c_left = item.get('color_left', '#FFFFFF')
+                    c_right = item.get('color_right', '#FFFFFF')
+                    
+                    # 1. Left Actor (Keep X < 5700)
+                    # Normal (1, 0, 0) at origin (5700,0,0) removes everything with X > 5700? 
+                    # brainrender/vedo cut_with_plane usually cuts the "positive side" of the plane normal.
+                    # So Normal(1,0,0) cuts +X side -> Keeps Left. Correct.
+                    actor_left = scene.add_brain_region(acronym, alpha=alpha, color=c_left)
+                    if actor_left:
+                        actor_left.cut_with_plane(origin=(midline_x, 0, 0), normal=(1, 0, 0))
+                        actor_left.name = f"{acronym}_L"
+                        actor_left.caption(f"{acronym} (L)")
+                    
+                    # 2. Right Actor (Keep X > 5700)
+                    # Normal (-1, 0, 0) cuts -X side (Left) -> Keeps Right. Correct.
+                    actor_right = scene.add_brain_region(acronym, alpha=alpha, color=c_right)
+                    if actor_right:
+                        actor_right.cut_with_plane(origin=(midline_x, 0, 0), normal=(-1, 0, 0))
+                        actor_right.name = f"{acronym}_R"
+                        actor_right.caption(f"{acronym} (R)")
+
+                else:
+                    # --- STANDARD VIEW LOGIC ---
+                    # Add region and capture the actor
+                    reg_actor = scene.add_brain_region(acronym, alpha=alpha, color=item['color'])
+                    if reg_actor:
+                        # FORCE the name to be the acronym so picking works
+                        reg_actor.name = acronym
+            except Exception as e:
+                log.warning(f"[WARN] Failed to add region {acronym}: {e}")
 
         # --- 2. Tractography / Streamlines ---
         if tract_file and tract_file.exists():

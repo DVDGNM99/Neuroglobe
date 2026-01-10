@@ -71,12 +71,28 @@ def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict
         log.error(f"CSV Load Error: {e}")
         return []
 
-    # 1. Normalize Values (Excluding the seed to avoid skewing the scale!)
-    # Normalize only targets, otherwise the seed (which has very high value) flattens all others to zero.
-    target_values = df[df['is_seed'] == False]['value'].values
+    # 1. Normalize Values
+    # We need to normalize based on the MAX value across all relevant target columns to keep scales consistent?
+    # Or normalize per-mode? Usually consistent scale is better for comparison.
+    # Let's find the global max of targets across all value columns to have a fixed scale.
     
-    if len(target_values) > 0:
-        v_min, v_max = target_values.min(), target_values.max()
+    value_cols = ['value_mean', 'value_ipsi', 'value_contra', 'value_left', 'value_right']
+    # Filter columns that actually exist in the CSV (backward compatibility)
+    present_cols = [c for c in value_cols if c in df.columns]
+    
+    # default fallback
+    if not present_cols and 'value' in df.columns:
+        present_cols = ['value']
+        # Map 'value' to 'value_mean' for consistency
+        df['value_mean'] = df['value'] 
+    
+    # Get max for normalization (ignoring Seed)
+    targets_df = df[df['is_seed'] == False]
+    
+    if not targets_df.empty and present_cols:
+        # Get global max across all value columns for targets
+        v_max = targets_df[present_cols].max().max()
+        v_min = 0.0 
         norm = mcolors.Normalize(vmin=v_min, vmax=v_max)
     else:
         v_min, v_max = 0.0, 1.0
@@ -86,25 +102,37 @@ def process_csv_data(file_path: str, colormap_name="viridis") -> Tuple[List[dict
     
     results = []
     for _, row in df.iterrows():
+        item = {
+            "acronym": str(row['acronym']),
+            "is_seed": bool(row['is_seed'])
+        }
         
         if row['is_seed']:
-            # --- SPECIAL COLOR FOR SEED ---
-            hex_color = "#000000" # Nero puro
-            # O un grigio scuro se preferisci: "#333333"
+            seed_color = "#000000"
+            for col in value_cols: # Ensure all possible keys exist for seed
+                 suffix = col.replace('value_', '')
+                 item[f"color_{suffix}"] = seed_color
+                 item[col] = row.get(col, 1.0)
         else:
-            rgba = cmap(norm(row['value'])) 
-            hex_color = mcolors.to_hex(rgba)
+            # Calculate color for each available metric
+            for col in present_cols:
+                val = row[col]
+                # Handle NaN
+                if pd.isna(val): val = 0.0
+                
+                rgba = cmap(norm(val))
+                suffix = col.replace('value_', '') # mean, ipsi, etc.
+                item[f"color_{suffix}"] = mcolors.to_hex(rgba)
+                item[col] = val
+                
+            # Fallback if color_mean missing (e.g. old CSV)
+            if "color_mean" not in item and "value" in row:
+                 val = row["value"]
+                 item["color_mean"] = mcolors.to_hex(cmap(norm(val)))
+
+        results.append(item)
         
-        results.append({
-            "acronym": str(row['acronym']),
-            "color": hex_color,
-            "is_seed": bool(row['is_seed'])
-        })
-        
-    # Put the SEED at the top of the list so it appears first in the GUI
-    results.sort(key=lambda x: x['is_seed'], reverse=True)
-        
-    # Put the SEED at the top of the list so it appears first in the GUI
+    # Put the SEED at the top
     results.sort(key=lambda x: x['is_seed'], reverse=True)
         
     return results, v_min, v_max
