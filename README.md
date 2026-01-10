@@ -1,6 +1,14 @@
 
 # NeuroGlobe
 **NeuroGlobe** is a comprehensive toolkit for mining, analyzing, and visualizing mouse brain connectivity data using the Allen Brain Atlas API. It provides a pipeline to fetch experimental data, perform statistical analysis, and render 3D interactive scenes with tractography.
+---
+![imagine](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Whole%20brain%20Serotonine%20projections.png)
+![imagine](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Filtered%20Serotonine%20projections%20in%20cortical%20target%20regions.png)
+![imagine](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Cortical%20targets%20Heatmaps%20of%20Serotonine%20inputs.png)
+![imagine](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Serotonine%20projections%20in%20target%20regions.png)
+![imagine](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/statistical%20serotonine.png)
+
+
 
 ## 🔗 Documentation & Roadmap
 
