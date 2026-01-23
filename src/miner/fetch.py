@@ -4,7 +4,10 @@ import pandas as pd
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 
-
+# Ensure src is in path
+root_path = str(Path(__file__).resolve().parent.parent.parent)
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 
 from src.definitions import CONFIGS_DIR, RAW_DATA_DIR
 from src.logger_config import log

@@ -216,47 +216,79 @@ class ViewerGUI:
 
     def build(self):
         dpg.create_context()
-        dpg.create_viewport(title="Neuroglobe Viewer", width=700, height=650)
+        dpg.create_viewport(title="Neuroglobe Viewer", width=750, height=700)
         
         with dpg.window(tag="Primary Window"):
-            dpg.add_text("Neuroglobe Viewer", color=(0, 200, 255))
-            dpg.add_text("Status: Ready", tag="status_text")
-            dpg.add_separator()
-
-            # --- TOP BAR ---
+            # --- HEADER ---
             with dpg.group(horizontal=True):
-                dpg.add_text("Manual:")
-                dpg.add_combo(items=["Add Region (+)", "Add Group (+)", "Filter Tracts"], 
-                              default_value="Select Action...", width=200, 
-                              callback=self.process_manual_action, tag="combo_manual")
-                
+                dpg.add_text("Neuroglobe Viewer", color=(0, 200, 255))
                 dpg.add_spacer(width=20)
-                
-                dpg.add_spacer(width=20)
-                
-                self.add_data_mode_toggle() # NEW TOGGLE
-                
-                dpg.add_spacer(width=20)
-                
+                dpg.add_text("Status: Ready", tag="status_text", color=(150, 255, 150))
+
+            dpg.add_separator()
+            dpg.add_spacer(height=5)
+
+            # --- CONTROL PANEL (Top) ---
+            # Row 1: Data Source & Global View Settings
+            with dpg.group(horizontal=True):
+                # Data Source
+                dpg.add_text("Source:", color=(200, 200, 200))
                 csv_files = self.controller.scan_csv_files()
-                dpg.add_text("Load Data:")
-                dpg.add_combo(items=csv_files, default_value="Select CSV...", width=250, 
+                dpg.add_combo(items=csv_files, default_value="Load CSV Data...", width=220, 
                               callback=self.load_csv_from_combo, tag="combo_csv")
+                
+                dpg.add_spacer(width=20)
+                
+                # Data View Mode (Mean/Ipsi/Contra)
+                dpg.add_text("View Mode:", color=(200, 200, 200))
+                dpg.add_combo(items=["Mean", "Ipsilateral", "Contralateral", "Both"], 
+                              default_value="Mean", tag="combo_data_mode", width=120, callback=self.update_rows_color)
 
+            dpg.add_spacer(height=5)
+
+            # Row 2: Manual Tools
+            with dpg.group(horizontal=True):
+                dpg.add_text("Manual:", color=(200, 200, 200))
+                dpg.add_button(label="+ Region", callback=lambda: self.add_row(), width=80)
+                dpg.add_button(label="+ Group", callback=self.open_group_dialog, width=80)
+                
+                dpg.add_spacer(width=20)
+                
+                dpg.add_text("Tracts:", color=(200, 200, 200))
+                dpg.add_button(label="Filter Raw Volume", callback=self.run_filter_callback)
+
+            dpg.add_spacer(height=5)
             dpg.add_separator()
 
-            # --- MIDDLE (Rows) ---
-            with dpg.child_window(tag="rows_container", border=False, height=-60):
-                self.add_row()
+            # --- REGION LIST (Middle) ---
+            # Use auto-resize height (-100 leaves room for bottom bar)
+            with dpg.child_window(tag="rows_container", border=True, height=-50):
+                if not self.rows:
+                    self.add_row() # Default empty row if nothing loaded
 
-            # --- BOTTOM BAR ---
-
-            # --- RENDER BUTTON ---
+            # --- RENDER BAR (Bottom) ---
             with dpg.group(horizontal=True):
+                # Visualization Mode (Mesh/Raw/None)
                 dpg.add_combo(items=["None", "Density (Raw)", "Density (Filtered)"], 
-                              default_value="None", tag="combo_viz_mode", width=200)
-                dpg.add_checkbox(label="Show Legend", default_value=True, tag="chk_legend")
-                dpg.add_button(label="RENDER SCENE", width=150, callback=self.run_render, tag="btn_render")
+                              default_value="None", tag="combo_viz_mode", width=180)
+                
+                dpg.add_spacer(width=10)
+                
+                # Legend (Disabled/Coming Soon)
+                dpg.add_checkbox(label="Legend (Coming Soon)", default_value=False, tag="chk_legend", enabled=False)
+                
+                dpg.add_spacer(width=20)
+                
+                # Render Button (The Big One)
+                dpg.add_button(label="RENDER 3D SCENE", width=-1, height=30, 
+                               callback=self.run_render, tag="btn_render")
+                # Theme color for render button (optional polish)
+                with dpg.theme(tag="render_btn_theme"):
+                    with dpg.theme_component(dpg.mvButton):
+                        dpg.add_theme_color(dpg.mvThemeCol_Button, (0, 100, 200))
+                        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (0, 130, 230))
+                        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0, 80, 180))
+                dpg.bind_item_theme("btn_render", "render_btn_theme")
         
         dpg.setup_dearpygui()
         dpg.show_viewport()

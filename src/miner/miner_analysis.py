@@ -3,8 +3,13 @@ import yaml
 from pathlib import Path
 from allensdk.core.mouse_connectivity_cache import MouseConnectivityCache
 import sys
+from pathlib import Path
 
 
+# Ensure src is in path
+root_path = str(Path(__file__).resolve().parent.parent.parent)
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 
 from src.definitions import PROJECT_ROOT, CONFIGS_DIR, RAW_DATA_DIR
 from src.logger_config import log

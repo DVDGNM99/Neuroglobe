@@ -1,6 +1,3 @@
-"""
-Pure business logic for region loading/validation, CSV parsing and color mapping.
-"""
 import json
 import pandas as pd
 import matplotlib.colors as mcolors

@@ -240,22 +240,9 @@ class RenderEngine:
         hud = Text2D("S: Save | K: Style | X/Y/Z: Views", pos="bottom-left", s=0.9, c="black", font="Calco")
         scene.add(hud)
 
-        # Add Region Scalar Bar (Separate Window)
-        if show_legend and metadata and "scalar_min" in metadata and "scalar_max" in metadata:
-            try:
-                s_min = metadata["scalar_min"]
-                s_max = metadata["scalar_max"]
-                
-                log.info(f"[RENDER] Launching Legend Window: {s_min:.4f} - {s_max:.4f}")
-                
-                import subprocess
-                import sys
-                
-                legend_script = self.root_dir / "src" / "viewer" / "show_legend.py"
-                subprocess.Popen([sys.executable, str(legend_script), "--min", str(s_min), "--max", str(s_max)])
-                
-            except Exception as e:
-                log.warning(f"[WARN] Could not launch legend window: {e}")
+
+        if show_legend:
+            log.info("[RENDER] Legend is disabled in this version for stability.")
 
         # --- 4. INTERACTION (CAMERAS & SAVING) ---
         self.output_dir = output_dir

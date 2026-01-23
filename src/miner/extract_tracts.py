@@ -83,3 +83,32 @@ def fetch_and_process_tracts(experiment_id):
         log.warning(f"    [SKIP] Failed to fetch projection_energy (Optional): {e}")
 
     return success_count > 0
+
+if __name__ == "__main__":
+    import sys
+    # Ensure src is in path
+    root_path = str(Path(__file__).resolve().parent.parent.parent)
+    if root_path not in sys.path:
+        sys.path.insert(0, root_path)
+
+    from src.miner.fetch import get_experiments
+
+    config = load_config()
+    seed = config["experiment"]["seed_acronym"]
+    
+    log.info(f"--- STARTING TRACT EXTRACTION FOR SEED: {seed} ---")
+    
+    # 1. Reuse logic to find best experiment
+    # Fetch experiments
+    experiments_df, _ = get_experiments(seed, RAW_DATA_DIR)
+    
+    if not experiments_df.empty:
+        best_exp = experiments_df.sort_values(by="injection_volume", ascending=False).iloc[0]
+        best_id = int(best_exp['id'])
+        log.info(f"[MINER] Selected Representative Experiment: {best_id}")
+        
+        # 2. Extract
+        fetch_and_process_tracts(best_id)
+        log.info("[SUCCESS] Tract extraction complete.")
+    else:
+        log.error("[ERROR] No experiments found for seed.")

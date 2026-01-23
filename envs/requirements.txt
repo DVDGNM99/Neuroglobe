@@ -6,6 +6,7 @@ tables==3.9.2
 pytest==9.0.2
 allensdk==2.16.2
 pathlib
+customtkinter
 
 # --- Rendering / Visualization (from brainglobe_render) ---
 scipy==1.15.2
@@ -27,6 +28,7 @@ napari==0.6.6
 brainrender==2.1.16
 morphapi
 brainglobe-space
+customtkinter
 
 # --- Jupyter Analysis ---
 matplotlib>=3.5.0

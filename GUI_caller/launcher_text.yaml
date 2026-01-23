@@ -1,0 +1,13 @@
+welcome_title: "Neuroglobe"
+welcome_description: |
+  Welcome to the Neuroglobe environment.
+  This suite allows you to mine brain connectivity data from the Allen Institute
+  and visualize it in a high-performance 3D engine.
+
+miner_button: "Open Miner GUI"
+miner_tooltip: "Configure and run the data mining pipeline (Fetch, Tracts, Aggregate)."
+
+viewer_button: "Launch Viewer"
+viewer_tooltip: "Launch the 3D visualization engine to explore the processed data."
+
+footer_text: "Neuroglobe project- by Dr. David Ganem"
