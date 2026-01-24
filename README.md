@@ -8,6 +8,7 @@
 ![Whole brain Serotonine projections](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Whole%20brain%20Serotonine%20projections.png)
 ![Filtered Serotonine projections](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Filtered%20Serotonine%20projections%20in%20cortical%20target%20regions.png)
 ![Cortical targets Heatmaps](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Cortical%20targets%20Heatmaps%20of%20Serotonine%20inputs.png)
+![Serotonine projections in target regions](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Serotonine%20projections%20in%20target%20regions.png)
 
 ---
 
