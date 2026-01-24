@@ -27,6 +27,23 @@ These files provide the foundation for the entire project.
 ---
 
 ### 🔹 The Miner (`src/miner/`)
+
+## ⚙️ Configuration
+
+### `configs/mining_config.yaml`
+Controls the mining process.
+- **`experiment.seed_acronym`**: The brain region to use as the injection seed (e.g., `VISp`).
+- **`selection.custom_targets`**: List of target regions to filter or analyze.
+
+### `configs/visual_config.yaml`
+Controls the Viewer's rendering and alignment.
+- **`aesthetics`**: Background color, axes visibility, etc.
+- **`alignment`**: Manual shifts and rotations for fine-tuning data alignment.
+
+### `configs/regions.json`
+Controls the Viewer's default region list.
+- Contains a list of regions with `acronym`, `name`, and `color_hex_triplet`.
+
 **Environment**: `allensdk`
 
 #### `src/miner/fetch.py`
@@ -60,6 +77,24 @@ These files provide the foundation for the entire project.
 ---
 
 ### 🔹 The Viewer (`src/viewer/`)
+
+## 🛠 Data Preparation (Native Workflow)
+The viewer expects data to be registered to the Allen Mouse Brain Atlas (CCFv3 25um).
+However, raw data often has incorrect metadata (e.g., spacing=1 instead of 25).
+
+We provide tools to fix this automatically:
+
+1.  **Check your data**:
+    ```bash
+    python scripts/check_volume_info.py data/processed/tracts/your_file.nrrd
+    ```
+2.  **Fix metadata**:
+    ```bash
+    python scripts/fix_volume_metadata.py data/processed/tracts/your_file.nrrd
+    ```
+    This will create a `_fixed.vtk` file (Mesh) with correct spacing (25um) and origin (0,0,0).
+    The viewer will **automatically** prioritize this file if it exists.
+    
 **Environment**: `brainglobe_render`
 
 #### `src/viewer/main.py`
