@@ -6,11 +6,11 @@ import json
 NOTEBOOK_DIR = Path(__file__).resolve().parent.parent.parent / "analysis"
 
 def test_notebook_exists():
-    nb_path = NOTEBOOK_DIR / "analisi_proiezioni_stat.ipynb"
+    nb_path = NOTEBOOK_DIR / "projection_stats_analysis.ipynb"
     assert nb_path.exists(), f"Notebook not found at {nb_path}"
 
 def test_notebook_valid_json():
-    nb_path = NOTEBOOK_DIR / "analisi_proiezioni_stat.ipynb"
+    nb_path = NOTEBOOK_DIR / "projection_stats_analysis.ipynb"
     if not nb_path.exists():
         pytest.skip("Notebook not found")
         
