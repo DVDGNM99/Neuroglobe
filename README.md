@@ -118,6 +118,7 @@ The "Analysis" button in the GUI triggers a post-processing script.
 The Viewer is designed for exploration.
 
 ### 1. Top Panel: Data Control
+(See [TUTORIAL.md - Loading Data](TUTORIAL.md#1-loading-data) and [Visualization Modes](TUTORIAL.md#2-visualization-modes))
 *   **Source**: Dropdown to select which CSV file to load. Defaults to your filtered datasets.
 *   **View Mode**: Changes how the regions are colored.
     *   *Mean*: **Symmetric visualization**. It averages the values of Left and Right hemispheres. Useful for general connectivity strength but hides laterality.
@@ -127,9 +128,10 @@ The Viewer is designed for exploration.
 
 ### 2. Manual Controls
 *   **+ Region / + Group**: Allows you to manually add brain structures to the scene even if they aren't in your CSV.
-*   **Filter Raw Volume**: This button creates a "Masked" version of the tractography cloud. It removes all projections *except* those ending inside your selected regions.
+*   **Filter Raw Volume**: This button creates a "Masked" version of the tractography cloud. It removes all projections *except* those ending inside your selected regions. (See [TUTORIAL.md - Tractography](TUTORIAL.md#3-tractography-the-cloud))
 
 ### 3. Bottom Panel: Rendering
+(See [TUTORIAL.md - Tractography](TUTORIAL.md#3-tractography-the-cloud))
 *   **Visualization Mode**:
     *   *None*: Statistics only (Region colors).
     *   *Density (Raw)*: The full 3D cloud from the representative animal.
@@ -137,6 +139,7 @@ The Viewer is designed for exploration.
 *   **Render 3D Scene**: Launches the interactive window.
 
 ### 4. Interactive Controls (In-Window)
+(See [TUTORIAL.md - Saving Your Work](TUTORIAL.md#4-saving-your-work-screenshots))
 *   **Rotate/Zoom**: Mouse controls.
 *   **Keyboard Shortcuts**:
     *   `X`, `Y`, `Z`: Snap camera to side/front/top views.
