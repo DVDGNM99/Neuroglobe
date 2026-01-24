@@ -42,6 +42,11 @@ data/raw/*
 !data/raw/experiment_583747816/
 !data/raw/experiment_480074702/
 
+# Ignore heavy raw demo volumes (avoid GitHub >50MB warnings)
+data/raw/experiment_480074702/projection_density_25.nrrd
+data/raw/experiment_583747816/projection_density_25.nrrd
+
+
 # IMPORTANT: ignore ALL tract processed outputs (too large for GitHub)
 data/processed/tracts/
 
