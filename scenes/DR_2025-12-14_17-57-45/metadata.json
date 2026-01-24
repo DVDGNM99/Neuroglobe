@@ -1,0 +1,24 @@
+{
+    "experiment_seed": "DR",
+    "source_type": "CSV Loaded",
+    "regions_count": 8,
+    "tracts_enabled": false,
+    "tract_file_used": "None",
+    "metric_used": "density",
+    "viz_mode": "None",
+    "data_mode": "Mean",
+    "targets_rendered": [
+        "ACA",
+        "MOp",
+        "MOs",
+        "PL",
+        "RSPd",
+        "SSs",
+        "VISp"
+    ],
+    "alpha_used": 0.8,
+    "scalar_min": 0.0,
+    "scalar_max": 0.0203754795047024,
+    "saved_at": "2025-12-14_17-57-45",
+    "folder_name": "DR_2025-12-14_17-57-45"
+}

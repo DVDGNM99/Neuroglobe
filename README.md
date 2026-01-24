@@ -54,7 +54,7 @@ python GUI_caller/launcher.py
 ### The Launcher Interface
 The Launcher presents you with a choice based on your goal:
 1.  **Open Miner GUI**: Choose this if you need to **generate new data**. Use this to search for a new brain region (Seed) or update existing datasets.
-2.  **Launch Viewer**: Choose this if you already have data (CSVs and .nrrd files) and want to **visualize** the results immediately.
+2.  **Launch Viewer**: Choose this if you already have data (CSVs and .nrrd files) and want to **visualize** the results immediately. (some demo data is provided in the `data/processed` folder DR_connectivity_filtered.csv, ACA_connectivity_filtered.csv, as well as DR_density.nrrd and ACA_density.nrrd)
 
 ---
 
@@ -65,6 +65,7 @@ This tool manages the interface with the Allen Institute.
 ### 1. Experiment Search
 *   **Input Seed**: Enter the acronym of the injection site (e.g., `VISp`, `DR`).
 *   **Behavior**: When you run the search, the Miner queries the Allen API for **ALL** available experiments involving that injection site. It does not filter them yet; it retrieves the entire catalog available in the database.
+    > ⚠️ **Note**: If the data is not already in your local cache, fetching and aggregating hundreds of experiments can take **dozens of minutes**. Please be patient; the console will update you on progress.
 
 ### 2. Data Processing & Logic (Crucial!)
 When you click "Run Pipeline", two distinct extractors work in parallel. It is vital to understand the difference between what you *see* as a cloud and what you *see* as region colors.
@@ -97,7 +98,7 @@ The "Analysis" button in the GUI triggers a post-processing script.
 *   **Interactive Notebook**:
     For detailed plots, matrices, and charts, use the dedicated Jupyter Notebook:
     *   **File**: `analysis/projection_stats_analysis.ipynb`
-    *   **Usage**: Run this notebook *after* the Miner has finished. It loads the generated CSVs and produces publication-ready visualizations (Bar charts of strong targets, Inter-animal variability plots, etc.).
+    *   **Usage**: Run this notebook *after* the Miner has finished. It loads the generated CSVs and produces publication-ready visualizations (Bar charts of strong targets, Inter-animal variability plots, etc.). future updates will include broader and more detailed analysis, in addition to the present ones.
 
 ---
 
@@ -108,10 +109,10 @@ The Viewer is designed for exploration.
 ### 1. Top Panel: Data Control
 *   **Source**: Dropdown to select which CSV file to load. Defaults to your filtered datasets.
 *   **View Mode**: Changes how the regions are colored.
-    *   *Mean*: Symmetrical coloring (Average of L/R).
-    *   *Ipsilateral*: Shows projections to the same side as injection.
-    *   *Contralateral*: Shows crossing projections.
-    *   *Both*: Splits the brain. Left side shows Left data, Right side shows Right data. Perfect for seeing asymmetry.
+    *   *Mean*: **Symmetric visualization**. It averages the values of Left and Right hemispheres. Useful for general connectivity strength but hides laterality.
+    *   *Ipsilateral*: Shows projections to the **same side** as the injection.
+    *   *Contralateral*: Shows crossing projections to the **opposite side**.
+    *   *Both*: **The Asymmetric Truth**. Splits the brain visualization: the Left side renders Left Hemisphere data, and the Right side renders Right Hemisphere data independently. This allows you to see lateralization (e.g., strong Ipsilateral vs weak Contralateral) simultaneously.
 
 ### 2. Manual Controls
 *   **+ Region / + Group**: Allows you to manually add brain structures to the scene even if they aren't in your CSV.

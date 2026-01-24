@@ -29,24 +29,27 @@ htmlcov/
 .pytest_cache/
 test_log.txt
 *_log.txt
+# (tests/ folder is KEPT by default)
 
 # --- Logs ---
 logs/
 *.log
 
-# --- Data Handling ---
-# Ignore all raw and processed data
-data/raw/
-data/processed/
+# --- Data ---
+# Ignore all Source/Raw data...
+data/raw/*
+# ...BUT keep specific Demo Experiments for the Viewer
+!data/raw/manifest.json
+!data/raw/experiment_583747816/
+!data/raw/experiment_480074702/
 
-
-# Large file extensions
-*.nrrd
-*.vtk
-*.vti
-*.h5
-*.swc
+# Keep Processed Data (Demo CSVs and Tracts)
+# data/processed/ is KEPT by default by not listing it here.
 
 # --- Scenes / Output ---
-# Ignore generated screenshots and scene exports
-scenes/
+# User requested to KEEP scenes (screenshots)
+# scenes/ 
+
+# --- Scripts ---
+# User identified as empty/unused
+scripts/
