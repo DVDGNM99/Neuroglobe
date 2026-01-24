@@ -4,27 +4,52 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuroglobe"
-version = "3.0.0"
+version = "4.0.0"
 description = "Advanced 3D Viewer for Allen Brain Atlas Connectivity"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
-  {name = "NeuroGlobe Team"}
+  {name = "Dr. David Ganem"}
 ]
 keywords = ["neuroscience", "atlas", "brainrender", "vtk"]
 
+# Common dependencies
 dependencies = [
+    "numpy>=1.23.5",
+    "pandas>=2.3.3",
+    "pyyaml>=6.0",
+    "customtkinter",
+    "jupyter",
+    "ipykernel",
+    "pytest",
+]
+
+[project.optional-dependencies]
+# Dependencies for the Mining Pipeline (envs/allensdk.yml)
+miner = [
     "allensdk>=2.16.2",
+    "tables>=3.9.2",
+    "SimpleITK>=2.0.0",
+]
+
+# Dependencies for the 3D Viewer (envs/brainglobe_render.yml)
+viewer = [
     "brainrender>=2.1.16",
     "vedo>=2025.5.4",
-    "pandas>=1.5.3",
-    "pyyaml>=6.0",
+    "brainglobe-atlasapi>=2.1.0",
+    "brainglobe-utils>=0.6.3",
+    "brainglobe-space>=1.0.3",
+    "morphapi",
+    "napari>=0.6.6",
+    "vtk>=9.2.6",
+    "k3d>=2.17.0",
     "matplotlib>=3.5.0",
-    "seaborn",
-    "numpy",
-    "ipykernel",
-    "jupyter",
+    "seaborn>=0.13.2",
+    "scipy>=1.15.2",
+    "rich>=14.2.0",
+    "typer>=0.20.0",
+    "dearpygui>=1.6.0",
 ]
 
 [tool.setuptools.packages.find]

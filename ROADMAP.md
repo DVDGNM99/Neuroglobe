@@ -24,7 +24,7 @@
 
 ---
 
-## 🟢 Low Complexity (Quick Wins)
+## 🟢 Low Complexity 
 
 ### Data & Mining
 - [ ] **Advanced Metadata Scraping**: Investigate additional fields (e.g., exact injection coordinates, transgenic line info).

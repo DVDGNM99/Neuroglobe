@@ -9,7 +9,6 @@
 ![Filtered Serotonine projections](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Filtered%20Serotonine%20projections%20in%20cortical%20target%20regions.png)
 ![Cortical targets Heatmaps](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Cortical%20targets%20Heatmaps%20of%20Serotonine%20inputs.png)
 ![Serotonine projections in target regions](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Serotonine%20projections%20in%20target%20regions.png)
-![Statistical Analysis](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/statistical%20serotonine.png)
 
 ---
 
@@ -56,8 +55,6 @@ pip install -e .
 ---
 
 ## 🖥 Viewer & Visualization
-
-Scripts located in `src/viewer/`. Run these in the **`brainglobe_render`** environment.
 
 ### Visualization Features
 - **Brain Regions**: Render any brain region by acronym with custom colors.
