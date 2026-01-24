@@ -18,9 +18,10 @@ Why do we need two separate environments?
 The **AllenSDK** (used for downloading data) relies on older scientific libraries, whereas **BrainGlobe/Vedo** (used for 3D rendering) requires cutting-edge graphics libraries. To prevent conflicts and crashes, we keep them strictly separated.
 
 ### 1. Preparation
-Ensure you have **Conda** installed. You will create two spaces:
+Ensure you have **Conda** installed. You will create three spaces:
 *   **`allensdk`**: The "Miner". Handles API communication, data downloading, and statistical analysis.
 *   **`brainglobe_render`**: The "Viewer". Handles the 3D interactive display.
+*   **`jupyter_analysis`**: The "Analyst". Optional environment for running the analysis notebooks and generating statistical plots.
 
 ### 2. Installation Commands
 ```bash 
@@ -55,7 +56,7 @@ python GUI_caller/launcher.py
 ```
 
 ### The Launcher Interface
-The Launcher presents you with a choice based on your goal:
+The Launcher presents you with a choice based on your goal (see [TUTORIAL.md - The Launcher](TUTORIAL.md#🚀-the-launcher) for a visual guide):
 1.  **Open Miner GUI**: Choose this if you need to **generate new data**. Use this to search for a new brain region (Seed) or update existing datasets.
 2.  **Launch Viewer**: Choose this if you already have data (CSVs and .nrrd files) and want to **visualize** the results immediately. (some demo data is provided in the `data/processed` folder DR_connectivity_filtered.csv, ACA_connectivity_filtered.csv, as well as DR_density.nrrd and ACA_density.nrrd)
 
