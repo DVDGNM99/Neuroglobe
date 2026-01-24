@@ -1,4 +1,4 @@
-# NeuroGlobe 4.0: Comprehensive Manual
+# NeuroGlobe 5.0: Comprehensive Manual
 
 **NeuroGlobe** is a complete suite for mining, analyzing, and visualizing mouse brain connectivity data. It bridges the gap between the Allen Brain Atlas API and modern 3D rendering technologies.
 
