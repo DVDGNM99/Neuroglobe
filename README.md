@@ -35,6 +35,9 @@ conda activate allensdk
 pip install -e .
 conda activate brainglobe_render
 pip install -e .
+
+# 3. Create Analysis Environment (Optional, for Notebooks)
+conda env create -f envs/jupyter_analysis.yml
 ```
 
 ---
@@ -66,6 +69,7 @@ This tool manages the interface with the Allen Institute.
 *   **Input Seed**: Enter the acronym of the injection site (e.g., `VISp`, `DR`).
 *   **Behavior**: When you run the search, the Miner queries the Allen API for **ALL** available experiments involving that injection site. It does not filter them yet; it retrieves the entire catalog available in the database.
     > ⚠️ **Note**: If the data is not already in your local cache, fetching and aggregating hundreds of experiments can take **dozens of minutes**. Please be patient; the console will update you on progress.
+    > ⚠️ **Crucial**: Avoid selecting specific layers (e.g., `MO1`) as they may cause visualization issues. Always choose the Generic Parent (e.g., `MO`). See [TUTORIAL.md - Best Practices](TUTORIAL.md#⚠-best-practices-region-selection-layers-vs-areas) for details.
 
 ### 2. Data Processing & Logic (Crucial!)
 When you click "Run Pipeline", two distinct extractors work in parallel. It is vital to understand the difference between what you *see* as a cloud and what you *see* as region colors.
@@ -87,6 +91,12 @@ The Miner generates several files in `data/processed/`:
 *   `{SEED}_connectivity.csv`: The raw statistical average of all regions.
 *   `{SEED}_connectivity_filtered.csv`: A cleaned version containing only your specific regions of interest (as defined in `configs/mining_config.yaml`).
 *   `tracts/{ID}_density.nrrd`: The 3D volume of the representative experiment.
+
+### 4. Output & Generated Files (`scenes/`)
+The **`scenes/`** folder is your gallery.
+*   **Purpose**: Stores high-resolution screenshots generated from the Viewer.
+*   **Demo Content**: We have included some demo captures (e.g., *Whole brain Serotonine projections*) to show potential results.
+*   **How to Save**: See [TUTORIAL.md - Saving Your Work](TUTORIAL.md#4-saving-your-work-screenshots) for instructions on capturing scenes.
 
 ---
 
