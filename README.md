@@ -23,7 +23,7 @@ Ensure you have **Conda** installed. You will create two spaces:
 *   **`brainglobe_render`**: The "Viewer". Handles the 3D interactive display.
 
 ### 2. Installation Commands
-```bash
+```bash 
 # 1. Create Miner Environment
 conda env create -f envs/allensdk.yml
 
