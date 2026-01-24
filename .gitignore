@@ -43,13 +43,22 @@ data/raw/*
 !data/raw/experiment_583747816/
 !data/raw/experiment_480074702/
 
-# Keep Processed Data (Demo CSVs and Tracts)
-# data/processed/ is KEPT by default by not listing it here.
+# In those kept raw demo folders, still ignore heavy volumes (optional but matches your issue)
+data/raw/experiment_583747816/**/*.nrrd
+data/raw/experiment_480074702/**/*.nrrd
+
+# Keep Processed Data (Demo CSVs and Tracts) was previously "KEPT by default"
+# but GitHub blocks very large scientific volumes/meshes: ignore them.
+data/processed/tracts/**/*.nrrd
+data/processed/tracts/**/*.vti
+data/processed/tracts/**/*.vtk
+
+# (Optional: if you also generate these)
+data/processed/tracts/**/*.nii
+data/processed/tracts/**/*.nii.gz
 
 # --- Scenes / Output ---
-# User requested to KEEP scenes (screenshots)
-# scenes/ 
+scenes/
 
 # --- Scripts ---
-# User identified as empty/unused
 scripts/
