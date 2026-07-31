@@ -1,16 +1,18 @@
 import customtkinter as ctk
 import json
 import sys
-import subprocess
 import threading
 import uuid
 from pathlib import Path
+
+from neuroglobe.core.jobs import CancellationToken, JobProgress, run_streaming_job
 
 # --- Constants & Paths ---
 BASE_PATH = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_PATH.parent
 REPOSITORY_ROOT = PROJECT_ROOT.parent
 MANIFEST_PATH = PROJECT_ROOT / "configs" / "manifest.json"
+JOB_TIMEOUT_SECONDS = 2 * 60 * 60
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -26,6 +28,7 @@ class GeneticsMinerApp(ctk.CTk):
         self.manifest_data = self.load_manifest(MANIFEST_PATH)
         self.genes = self.manifest_data.get("processing", {}).get("genes", [])
         self.regions = self.manifest_data.get("processing", {}).get("target_regions", [])
+        self.active_job: CancellationToken | None = None
 
         # --- UI Layout ---
         self.grid_columnconfigure(0, weight=1)
@@ -55,38 +58,39 @@ class GeneticsMinerApp(ctk.CTk):
         self.console_out.configure(state="disabled")
 
     def run_module(self, module_name, extra_args=None, cleanup_path=None):
+        if self.active_job is not None:
+            self.log_console("[ERROR] Another job is already running.")
+            return
         self.log_console(f"--- Running {module_name} ---")
         self.set_buttons_state("disabled")
         command = [sys.executable, "-u", "-m", module_name]
         if extra_args:
             command.extend(str(value) for value in extra_args)
+        token = CancellationToken()
+        self.active_job = token
 
         def task():
             try:
-                process = subprocess.Popen(
+                result = run_streaming_job(
                     command,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    cwd=str(REPOSITORY_ROOT),
-                    encoding='utf-8',
-                    errors='replace'
+                    cwd=REPOSITORY_ROOT,
+                    on_output=lambda line: self.after(0, self.log_console, line),
+                    timeout_seconds=JOB_TIMEOUT_SECONDS,
+                    cancellation_token=token,
+                    on_progress=lambda progress: self.after(
+                        0, self.update_job_progress, progress
+                    ),
                 )
-
-                while True:
-                    line = process.stdout.readline()
-                    if not line and process.poll() is not None:
-                        break
-                    if line:
-                        self.after(0, self.log_console, line.strip())
-
-                return_code = process.wait()
-                if return_code == 0:
+                if result.cancelled:
+                    message = f"--- Cancelled {module_name} ---"
+                elif result.timed_out:
+                    message = f"--- {module_name} timed out ---"
+                elif result.succeeded:
                     message = f"--- Finished {module_name} ---"
                 else:
                     message = (
                         f"--- {module_name} failed with exit code "
-                        f"{return_code} ---"
+                        f"{result.returncode} ---"
                     )
                 self.after(0, self.log_console, message)
 
@@ -102,55 +106,66 @@ class GeneticsMinerApp(ctk.CTk):
                             self.log_console,
                             f"[WARN] Could not remove runtime state: {error}",
                         )
+                self.active_job = None
+                self.after(0, self.job_status.configure, {"text": "Idle"})
                 self.after(0, lambda: self.set_buttons_state("normal"))
 
         t = threading.Thread(target=task, daemon=True)
         t.start()
 
     def run_fetch_and_filter(self):
-        # We need to run fetch then filter, doing it in a combined thread
+        if self.active_job is not None:
+            self.log_console("[ERROR] Another job is already running.")
+            return
         self.set_buttons_state("disabled")
+        token = CancellationToken()
+        self.active_job = token
+
         def task():
             try:
-                # 1. Fetch
                 self.after(0, self.log_console, "--- Starting Fetch Phase ---")
-                proc1 = subprocess.Popen(
+                fetch_result = run_streaming_job(
                     [sys.executable, "-u", "-m", "neuroglobe.genetics.miner.fetch_genes"],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, cwd=str(REPOSITORY_ROOT), encoding='utf-8', errors='replace'
+                    cwd=REPOSITORY_ROOT,
+                    on_output=lambda line: self.after(0, self.log_console, line),
+                    timeout_seconds=JOB_TIMEOUT_SECONDS,
+                    cancellation_token=token,
+                    on_progress=lambda progress: self.after(
+                        0, self.update_job_progress, progress
+                    ),
                 )
-                for line in proc1.stdout:
-                    self.after(0, self.log_console, line.strip())
-                fetch_code = proc1.wait()
-                if fetch_code != 0:
+                if not fetch_result.succeeded:
                     self.after(
                         0,
                         self.log_console,
-                        f"[ERROR] Fetch failed with exit code {fetch_code}; filter not started.",
+                        "[ERROR] Fetch did not complete; filter not started.",
                     )
                     return
 
-                # 2. Filter
                 self.after(0, self.log_console, "--- Starting Filter Phase ---")
-                proc2 = subprocess.Popen(
+                filter_result = run_streaming_job(
                     [sys.executable, "-u", "-m", "neuroglobe.genetics.miner.filter_volume"],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, cwd=str(REPOSITORY_ROOT), encoding='utf-8', errors='replace'
+                    cwd=REPOSITORY_ROOT,
+                    on_output=lambda line: self.after(0, self.log_console, line),
+                    timeout_seconds=JOB_TIMEOUT_SECONDS,
+                    cancellation_token=token,
+                    on_progress=lambda progress: self.after(
+                        0, self.update_job_progress, progress
+                    ),
                 )
-                for line in proc2.stdout:
-                    self.after(0, self.log_console, line.strip())
-                filter_code = proc2.wait()
-                if filter_code == 0:
+                if filter_result.succeeded:
                     self.after(0, self.log_console, "--- Pipeline Completed Successfully ---")
                 else:
                     self.after(
                         0,
                         self.log_console,
-                        f"[ERROR] Filter failed with exit code {filter_code}.",
+                        "[ERROR] Filter did not complete successfully.",
                     )
             except Exception as e:
                 self.after(0, self.log_console, f"[EXCEPTION] Pipeline failed: {e}")
             finally:
+                self.active_job = None
+                self.after(0, self.job_status.configure, {"text": "Idle"})
                 self.after(0, lambda: self.set_buttons_state("normal"))
 
         t = threading.Thread(target=task, daemon=True)
@@ -167,6 +182,20 @@ class GeneticsMinerApp(ctk.CTk):
                      btn.configure(fg_color="#D03B3B")
                  else:
                      btn.configure(fg_color=["#3a7ebf", "#1f538d"])
+        self.btn_cancel.configure(state="normal" if state == "disabled" else "disabled")
+
+    def update_job_progress(self, progress: JobProgress):
+        self.job_status.configure(
+            text=(
+                f"PID {progress.process_id} · {progress.elapsed_seconds:.1f}s · "
+                f"{progress.lines_emitted} log lines"
+            )
+        )
+
+    def cancel_active_job(self):
+        if self.active_job is not None:
+            self.active_job.cancel()
+            self.log_console("[GUI] Cancellation requested; waiting for process shutdown...")
 
     # --- TAB 1: ABOUT ---
     def build_about_tab(self):
@@ -236,6 +265,19 @@ class GeneticsMinerApp(ctk.CTk):
 
         self.btn_viewer = ctk.CTkButton(right_panel, text="2. Engage Viewer", command=self.run_viewer, height=60, width=220, font=("Arial", 16, "bold"), fg_color="#D03B3B", hover_color="#A02B2B")
         self.btn_viewer.pack(pady=20)
+
+        self.btn_cancel = ctk.CTkButton(
+            right_panel,
+            text="Cancel active job",
+            command=self.cancel_active_job,
+            height=35,
+            width=220,
+            state="disabled",
+            fg_color="#8B2E2E",
+        )
+        self.btn_cancel.pack(pady=(10, 6))
+        self.job_status = ctk.CTkLabel(right_panel, text="Idle", text_color="gray")
+        self.job_status.pack(pady=(0, 10))
 
         # -- BOTTOM PANEL (Console) --
         console_frame = ctk.CTkFrame(frame)

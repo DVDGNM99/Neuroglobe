@@ -4,8 +4,9 @@ import sys
 import json
 from pathlib import Path
 import tkinter as tk
-import subprocess
 import threading
+
+from neuroglobe.core.jobs import CancellationToken, JobProgress, run_streaming_job
 
 # --- Constants & Paths ---
 BASE_PATH = Path(__file__).resolve().parent
@@ -13,6 +14,7 @@ PROJECT_ROOT = BASE_PATH.parent
 REPOSITORY_ROOT = PROJECT_ROOT.parent
 CONFIG_PATH = PROJECT_ROOT / "configs" / "mining_config.yaml"
 REGIONS_PATH = PROJECT_ROOT / "configs" / "regions.json"
+JOB_TIMEOUT_SECONDS = 2 * 60 * 60
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -50,6 +52,7 @@ class MinerApp(ctk.CTk):
         # Internal State
         # Load targets from config
         self.current_targets = self.config_data.get("selection", {}).get("custom_targets", [])
+        self.active_job: CancellationToken | None = None
         
         # --- UI Layout ---
         self.grid_columnconfigure(0, weight=1)
@@ -275,6 +278,19 @@ class MinerApp(ctk.CTk):
         self.btn_filter = ctk.CTkButton(right_panel, text="4. Filter Targets", command=lambda: self.run_script("filter_csv.py"), height=45, width=220, font=("Arial", 14))
         self.btn_filter.pack(pady=10)
 
+        self.btn_cancel = ctk.CTkButton(
+            right_panel,
+            text="Cancel active job",
+            command=self.cancel_active_job,
+            height=35,
+            width=220,
+            state="disabled",
+            fg_color="#8B2E2E",
+        )
+        self.btn_cancel.pack(pady=(18, 6))
+        self.job_status = ctk.CTkLabel(right_panel, text="Idle", text_color="gray")
+        self.job_status.pack(pady=(0, 10))
+
         # -- BOTTOM PANEL (Console) --
         console_frame = ctk.CTkFrame(frame)
         console_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
@@ -337,6 +353,22 @@ class MinerApp(ctk.CTk):
                          btn.configure(fg_color="#D03B3B") # Red
                      else:
                          btn.configure(fg_color=["#3a7ebf", "#1f538d"])
+        cancel_button = getattr(self, "btn_cancel", None)
+        if cancel_button is not None:
+            cancel_button.configure(state="normal" if state == "disabled" else "disabled")
+
+    def update_job_progress(self, progress: JobProgress):
+        self.job_status.configure(
+            text=(
+                f"PID {progress.process_id} · {progress.elapsed_seconds:.1f}s · "
+                f"{progress.lines_emitted} log lines"
+            )
+        )
+
+    def cancel_active_job(self):
+        if self.active_job is not None:
+            self.active_job.cancel()
+            self.log_console("[GUI] Cancellation requested; waiting for process shutdown...")
 
     def log_to_widget(self, widget, msg):
         if widget:
@@ -353,6 +385,9 @@ class MinerApp(ctk.CTk):
         # Default to main console if none provided
         if output_widget is None:
             output_widget = self.console_out
+        if self.active_job is not None:
+            self.log_to_widget(output_widget, "[ERROR] Another job is already running.")
+            return
 
         # Auto-Save before running to prevent data mismatch
         print(f"[GUI] Auto-saving before running {script_name}...")
@@ -372,42 +407,43 @@ class MinerApp(ctk.CTk):
         
         self.log_to_widget(output_widget, f"--- Running {script_name} ---")
         self.set_buttons_state("disabled") # LOCK UI
-        
+        token = CancellationToken()
+        self.active_job = token
+
         def task():
             try:
-                process = subprocess.Popen(
+                result = run_streaming_job(
                     [sys.executable, "-u", "-m", module_name],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    cwd=str(REPOSITORY_ROOT),
-                    encoding='utf-8', 
-                    errors='replace'
+                    cwd=REPOSITORY_ROOT,
+                    on_output=lambda line: self.after(
+                        0, self.log_to_widget, output_widget, line
+                    ),
+                    timeout_seconds=JOB_TIMEOUT_SECONDS,
+                    cancellation_token=token,
+                    on_progress=lambda progress: self.after(
+                        0, self.update_job_progress, progress
+                    ),
                 )
-                
-                while True:
-                    line = process.stdout.readline()
-                    if not line and process.poll() is not None:
-                        break
-                    if line:
-                        self.after(0, self.log_to_widget, output_widget, line.strip())
-                
-                return_code = process.wait()
-                if return_code == 0:
+                if result.cancelled:
+                    message = f"--- Cancelled {script_name} ---"
+                elif result.timed_out:
+                    message = f"--- {script_name} timed out ---"
+                elif result.succeeded:
                     message = f"--- Finished {script_name} ---"
                 else:
                     message = (
                         f"--- {script_name} failed with exit code "
-                        f"{return_code} ---"
+                        f"{result.returncode} ---"
                     )
                 self.after(0, self.log_to_widget, output_widget, message)
             except Exception as e:
                 self.after(0, self.log_to_widget, output_widget, f"[EXCEPTION] {e}")
             finally:
                 # UNLOCK UI ALWAYS
+                self.active_job = None
+                self.after(0, self.job_status.configure, {"text": "Idle"})
                 self.after(0, lambda: self.set_buttons_state("normal"))
 
-        import threading
         t = threading.Thread(target=task, daemon=True)
         t.start()
 
