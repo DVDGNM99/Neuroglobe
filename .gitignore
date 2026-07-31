@@ -40,6 +40,8 @@ logs/
 projections/data/raw/
 projections/data/processed/tracts/
 projections/data/processed/*.csv
+projections/data/processed/*.manifest.json
+projections/data/processed/runs/
 projections/analysis/*.csv
 projections/analysis/data/*.csv
 

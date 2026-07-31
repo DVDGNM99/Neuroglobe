@@ -1,6 +1,10 @@
 import pandas as pd
+import pytest
 
-from neuroglobe.projections.miner.aggregate import process_aggregation
+from neuroglobe.projections.miner.aggregate import (
+    process_aggregation,
+    select_representative_experiment,
+)
 
 
 def test_aggregation_uses_ml_coordinate_and_excludes_hemisphere_three():
@@ -67,6 +71,12 @@ def test_aggregation_uses_ml_coordinate_and_excludes_hemisphere_three():
     assert row["value_left"] == 7.0
     assert row["value_right"] == 11.0
     assert row["value_mean"] == 9.0
+    assert row["n_mean"] == 2
+    assert row["variance_mean"] == 18.0
+    assert row["ci95_low_mean"] == pytest.approx(3.12)
+    assert row["ci95_high_mean"] == pytest.approx(14.88)
+    assert row["n_ipsi"] == 2
+    assert row["variance_ipsi"] == 50.0
 
 
 def test_unknown_injection_coordinate_is_not_silently_right():
@@ -93,3 +103,23 @@ def test_unknown_injection_coordinate_is_not_silently_right():
     row = result.iloc[0]
     assert row["value_ipsi"] == 0
     assert row["value_contra"] == 0
+    assert row["n_ipsi"] == 0
+    assert row["n_contra"] == 0
+
+
+def test_representative_score_penalizes_missing_spatial_metadata():
+    experiments = pd.DataFrame(
+        {
+            "id": [100, 200],
+            "injection_volume": [1.0, 0.8],
+            "injection_x": [None, 1000.0],
+            "injection_y": [None, 2000.0],
+            "injection_z": [None, 3000.0],
+        }
+    )
+
+    representative = select_representative_experiment(experiments)
+
+    assert representative["id"] == 200
+    assert representative["representative_score"] == pytest.approx(0.85)
+    assert representative["coordinate_completeness"] == 1.0

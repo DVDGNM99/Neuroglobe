@@ -7,8 +7,11 @@ from neuroglobe.core.coordinates import Hemisphere, injection_hemisphere
 from neuroglobe.core.provenance import (
     artifact_manifest,
     canonical_json_hash,
+    file_record,
     file_sha256,
+    run_manifest,
     write_json_atomic,
+    write_json_immutable,
 )
 from neuroglobe.projections.config import load_mining_config
 from neuroglobe.projections.definitions import CONFIGS_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR
@@ -18,6 +21,87 @@ CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
 
 def load_config():
     return load_mining_config(CONFIG_PATH)
+
+
+def select_representative_experiment(experiments_df: pd.DataFrame) -> pd.Series:
+    """Select a 3D representative using volume and coordinate completeness.
+
+    Injection volume contributes 75% of the score.  Availability of AP/DV/ML
+    coordinates contributes 25%, preventing a large but spatially incomplete
+    experiment from silently becoming the anatomical representative.
+    """
+
+    required = {"id", "injection_volume"}
+    missing = required - set(experiments_df.columns)
+    if missing:
+        raise ValueError(f"Representative selection is missing columns: {sorted(missing)}")
+    if experiments_df.empty:
+        raise ValueError("Cannot select a representative from an empty table.")
+
+    scored = experiments_df.copy()
+    volumes = pd.to_numeric(scored["injection_volume"], errors="coerce").fillna(0.0)
+    maximum_volume = float(volumes.max())
+    scored["volume_score"] = volumes / maximum_volume if maximum_volume > 0 else 0.0
+    coordinate_columns = [
+        column for column in ("injection_x", "injection_y", "injection_z")
+        if column in scored.columns
+    ]
+    if coordinate_columns:
+        scored["coordinate_completeness"] = scored[coordinate_columns].notna().mean(axis=1)
+    else:
+        scored["coordinate_completeness"] = 1.0
+    scored["representative_score"] = (
+        0.75 * scored["volume_score"] + 0.25 * scored["coordinate_completeness"]
+    )
+    return scored.sort_values(
+        by=["representative_score", "injection_volume", "id"],
+        ascending=[False, False, True],
+    ).iloc[0]
+
+
+def _summarize_values(
+    frame: pd.DataFrame,
+    metric: str,
+    aggregation_mode: str,
+    suffix: str,
+) -> pd.DataFrame:
+    """Summarize independent experiment values with uncertainty columns."""
+
+    columns = [
+        "acronym",
+        f"value_{suffix}",
+        f"n_{suffix}",
+        f"variance_{suffix}",
+        f"std_{suffix}",
+        f"ci95_low_{suffix}",
+        f"ci95_high_{suffix}",
+    ]
+    if frame.empty:
+        return pd.DataFrame(columns=columns)
+
+    per_experiment = (
+        frame.groupby(["experiment_id", "acronym"], as_index=False)[metric].mean()
+    )
+    grouped = per_experiment.groupby("acronym")[metric]
+    descriptive = grouped.agg(["count", "mean", "var", "std"])
+    if aggregation_mode == "median":
+        central = grouped.median()
+    elif aggregation_mode == "max":
+        central = grouped.max()
+    else:
+        central = descriptive["mean"]
+    standard_error = descriptive["std"] / descriptive["count"].pow(0.5)
+    return pd.DataFrame(
+        {
+            "acronym": descriptive.index,
+            f"value_{suffix}": central,
+            f"n_{suffix}": descriptive["count"].astype(int),
+            f"variance_{suffix}": descriptive["var"],
+            f"std_{suffix}": descriptive["std"],
+            f"ci95_low_{suffix}": descriptive["mean"] - 1.96 * standard_error,
+            f"ci95_high_{suffix}": descriptive["mean"] + 1.96 * standard_error,
+        }
+    ).reset_index(drop=True)
 
 def download_and_aggregate(experiments_df, mcc, config):
     """
@@ -46,14 +130,16 @@ def download_and_aggregate(experiments_df, mcc, config):
     agg_mode = config["processing"]["aggregation_mode"]
     
     # --- 1. Select "Best Experiment" for Tractography ---
-    # Sort by injection volume descending and take the first one.
     if not eligible_experiments.empty:
-        best_exp = eligible_experiments.sort_values(
-            by=["injection_volume", "id"], ascending=[False, True]
-        ).iloc[0]
+        best_exp = select_representative_experiment(eligible_experiments)
         best_id = int(best_exp['id'])
         log.info(f"[MINER] Selected Representative Experiment: {best_id}")
         log.info(f"        (Injection Vol: {best_exp['injection_volume']:.3f} mm3)")
+        log.info(
+            "        (Selection score: %.3f; coordinate completeness: %.2f)",
+            best_exp["representative_score"],
+            best_exp["coordinate_completeness"],
+        )
         
         # Download 3D volume
         success = fetch_and_process_tracts(best_id)
@@ -93,7 +179,14 @@ def download_and_aggregate(experiments_df, mcc, config):
     )
     final_df.attrs["included_experiment_ids"] = [int(value) for value in experiment_ids]
     final_df.attrs["excluded_experiment_ids"] = excluded_ids
-    
+    final_df.attrs["representative_selection"] = {
+        "experiment_id": best_id,
+        "score": float(best_exp["representative_score"]),
+        "volume_score": float(best_exp["volume_score"]),
+        "coordinate_completeness": float(best_exp["coordinate_completeness"]),
+        "weights": {"injection_volume": 0.75, "coordinate_completeness": 0.25},
+    }
+
     return final_df
 
 def process_aggregation(
@@ -155,43 +248,35 @@ def process_aggregation(
     
     # --- 5. Aggregation (Targets) ---
     log.info(f"[MINER] Aggregating targets using mode: '{agg_mode}'...")
-    
-    # Aggregation helper
-    def agg_func(df, col):
-        if df.empty: return pd.Series(dtype=float)
-        if agg_mode == 'mean': return df.groupby('acronym')[col].mean()
-        elif agg_mode == 'median': return df.groupby('acronym')[col].median()
-        elif agg_mode == 'max': return df.groupby('acronym')[col].max()
-        return df.groupby('acronym')[col].mean()
 
-    # Ipsilateral and contralateral exclude unknown/midline injections.
+    # Ipsilateral and contralateral exclude unknown/midline injections.  Each
+    # animal is reduced first, so N and uncertainty describe independent
+    # experiments rather than raw unionize row counts.
     df_ipsi = target_df[target_df['is_ipsi'] == True]
-    s_ipsi = agg_func(df_ipsi, metric)
-    
-    # 3. Contralateral
     df_contra = target_df[target_df['is_contra'] == True]
-    s_contra = agg_func(df_contra, metric)
-    
-    # 4. Left Hemisphere (hemisphere_id == 1)
     df_left = target_df[target_df['hemisphere_id'] == 1]
-    s_left = agg_func(df_left, metric)
-    
-    # 5. Right Hemisphere (hemisphere_id == 2)
     df_right = target_df[target_df['hemisphere_id'] == 2]
-    s_right = agg_func(df_right, metric)
-    
-    # Mean is defined as the arithmetic mean of independently aggregated
-    # left/right values. Hemisphere ID 3 is not mixed into this statistic.
-    final_df = pd.DataFrame({
-        'value_ipsi': s_ipsi,
-        'value_contra': s_contra,
-        'value_left': s_left,
-        'value_right': s_right
-    })
-    final_df = final_df.fillna(0)
-    final_df["value_mean"] = (
-        final_df["value_left"] + final_df["value_right"]
-    ) / 2.0
+
+    side_values = target_df[target_df["hemisphere_id"].isin((1, 2))]
+    per_side = side_values.pivot_table(
+        index=["experiment_id", "acronym"],
+        columns="hemisphere_id",
+        values=metric,
+        aggfunc="mean",
+    )
+    animal_means = per_side.mean(axis=1).rename(metric).reset_index()
+
+    summaries = [
+        _summarize_values(animal_means, metric, agg_mode, "mean"),
+        _summarize_values(df_ipsi, metric, agg_mode, "ipsi"),
+        _summarize_values(df_contra, metric, agg_mode, "contra"),
+        _summarize_values(df_left, metric, agg_mode, "left"),
+        _summarize_values(df_right, metric, agg_mode, "right"),
+    ]
+    final_df = summaries[0]
+    for summary in summaries[1:]:
+        final_df = final_df.merge(summary, on="acronym", how="outer")
+
     value_columns = [
         "value_mean",
         "value_ipsi",
@@ -199,10 +284,17 @@ def process_aggregation(
         "value_left",
         "value_right",
     ]
+    count_columns = [f"n_{suffix}" for suffix in ("mean", "ipsi", "contra", "left", "right")]
+    for column in value_columns:
+        final_df[column] = pd.to_numeric(final_df[column], errors="coerce").fillna(0.0)
+    for column in count_columns:
+        final_df[column] = (
+            pd.to_numeric(final_df[column], errors="coerce").fillna(0).astype(int)
+        )
     final_df[value_columns] = final_df[value_columns].mask(
         final_df[value_columns] < float(threshold_lower), 0.0
     )
-    final_df = final_df.reset_index()
+    final_df = final_df.reset_index(drop=True)
     
     # Legacy compatibility: 'value' column = 'value_mean'
     final_df['value'] = final_df['value_mean']
@@ -225,12 +317,15 @@ def process_aggregation(
             'value': val, 
             'value_mean': val,
             'value_ipsi': val,   # Assumption: Seed is high everywhere
-            'value_contra': 0,   # Seed usually doesn't cross? or maybe it does. Let's keep 0 to distinguish.
+            'value_contra': 0,
             'value_left': val,   # Simplified
             'value_right': val,  # Simplified
-            'is_seed': True
+            'is_seed': True,
+            'n_mean': int(
+                seed_df[seed_df["acronym"] == seed_acronym]["experiment_id"].nunique()
+            ),
         })
-        
+
     final_seed = pd.DataFrame(seed_rows)
     
     # --- 7. Merge & Save ---
@@ -273,26 +368,57 @@ def main() -> int:
     if config.get("selection", {}).get("use_custom_targets", False):
         custom_targets = config["selection"].get("custom_targets", [])
         primary_seed = config["experiment"].get("seed_acronym", "")
-        
+
         if custom_targets:
             # Strict Filtering:
-            # 1. Keep Targets: Must be in custom_targets AND NOT be a seed/injection site (avoids duplicates).
+            # 1. Keep requested targets that are not injection-site rows.
             # 2. Keep Primary Seed: The only allowed seed row.
             filtered_df = final_data[
-                ((final_data['acronym'].isin(custom_targets)) & (final_data['is_seed'] == False)) | 
-                ((final_data['is_seed'] == True) & (final_data['acronym'] == primary_seed))
+                (final_data['acronym'].isin(custom_targets) & ~final_data['is_seed'])
+                | (final_data['is_seed'] & (final_data['acronym'] == primary_seed))
             ]
-            
+
             filtered_filename = f"{seed}_connectivity_filtered.csv"
             filtered_path = PROCESSED_DATA_DIR / filtered_filename
             filtered_df.to_csv(filtered_path, index=False)
             log.info(f"[SUCCESS] Filtered Data saved to: {filtered_path}")
-            log.info(f"          (Cleaned up {len(final_data) - len(filtered_df)} spillover/unused regions)")
-    
+            log.info(
+                "          (Cleaned up %d spillover/unused regions)",
+                len(final_data) - len(filtered_df),
+            )
+
     if 'tract_experiment_id' in final_data.columns:
-        log.info(f"          Linked Tractography ID: {final_data['tract_experiment_id'].iloc[0]}")
+        log.info(
+            "          Linked Tractography ID: %s",
+            final_data['tract_experiment_id'].iloc[0],
+        )
+
+    output_paths = [output_path]
+    if config.get("selection", {}).get("use_custom_targets", False) and "filtered_path" in locals():
+        output_paths.append(filtered_path)
+    run = run_manifest(
+        "projection-connectivity-aggregation",
+        parameters={
+            "config": config,
+            "included_experiment_ids": final_data.attrs.get("included_experiment_ids", []),
+            "excluded_experiment_ids": final_data.attrs.get("excluded_experiment_ids", []),
+            "representative_selection": final_data.attrs.get("representative_selection", {}),
+        },
+        outputs=[
+            file_record(path, base_dir=PROCESSED_DATA_DIR, role="connectivity_csv")
+            for path in output_paths
+        ],
+        atlas={"name": "Allen Mouse CCF", "resolution_um": [25, 25, 25]},
+        transformations=[
+            {"name": "Allen coordinate mapping", "version": 1, "axes": "x=AP,y=DV,z=ML"}
+        ],
+        packages=("allensdk", "pandas"),
+    )
+    run_path = PROCESSED_DATA_DIR / "runs" / f"{run['run_id']}.manifest.json"
+    write_json_immutable(run_path, run)
 
     manifest = artifact_manifest(
+        run_id=run["run_id"],
         artifact_type="projection_connectivity_csv",
         coordinate_convention="Allen CCF: x=AP, y=DV, z=ML; units=um",
         config=config,
@@ -305,6 +431,7 @@ def main() -> int:
         outputs={
             output_path.name: file_sha256(output_path),
         },
+        run_manifest=run_path.relative_to(PROCESSED_DATA_DIR).as_posix(),
     )
     write_json_atomic(
         output_path.with_suffix(".manifest.json"),

@@ -30,6 +30,27 @@ class AtlasGeometry:
     shape: tuple[int, int, int]
     spacing_um: tuple[float, float, float]
     origin_um: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    direction: tuple[float, ...] = (
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    )
+
+    def __post_init__(self) -> None:
+        if len(self.shape) != 3 or any(value <= 0 for value in self.shape):
+            raise ValueError("Atlas shape must contain three positive dimensions.")
+        if len(self.spacing_um) != 3 or any(value <= 0 for value in self.spacing_um):
+            raise ValueError("Atlas spacing must contain three positive values.")
+        if len(self.origin_um) != 3:
+            raise ValueError("Atlas origin must contain three values.")
+        if len(self.direction) != 9:
+            raise ValueError("Atlas direction must contain a flattened 3x3 matrix.")
 
     @classmethod
     def from_values(
@@ -37,11 +58,13 @@ class AtlasGeometry:
         shape: Iterable[int],
         spacing_um: Iterable[float],
         origin_um: Iterable[float] = (0.0, 0.0, 0.0),
+        direction: Iterable[float] = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0),
     ) -> "AtlasGeometry":
         return cls(
             tuple(int(v) for v in shape),
             tuple(float(v) for v in spacing_um),
             tuple(float(v) for v in origin_um),
+            tuple(float(v) for v in direction),
         )
 
     def midpoint_um(self, axis: PhysicalAxis) -> float:
@@ -53,6 +76,20 @@ class AtlasGeometry:
     @property
     def ml_midpoint_um(self) -> float:
         return self.midpoint_um(PhysicalAxis.ML)
+
+    def index_to_physical(self, index: Iterable[float]) -> tuple[float, float, float]:
+        """Transform an AP/DV/ML continuous index into physical micrometres."""
+
+        values = tuple(float(value) for value in index)
+        if len(values) != 3:
+            raise ValueError("A spatial index must contain three values.")
+        scaled = tuple(values[i] * self.spacing_um[i] for i in range(3))
+        direction = tuple(self.direction[row * 3 : row * 3 + 3] for row in range(3))
+        return tuple(
+            self.origin_um[row]
+            + sum(direction[row][column] * scaled[column] for column in range(3))
+            for row in range(3)
+        )
 
 
 ALLEN_CCF_25UM = AtlasGeometry(
