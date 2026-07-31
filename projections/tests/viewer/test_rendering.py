@@ -14,6 +14,7 @@ def _render_modules(scene_class, *, load=None):
     actors.Streamlines = MagicMock()
     vedo = types.ModuleType("vedo")
     vedo.Text2D = MagicMock()
+    vedo.LegendBox = MagicMock()
     vedo.Volume = MagicMock()
     vedo.load = load or MagicMock()
     return {
@@ -84,3 +85,22 @@ def test_vtk_tract_is_reported_as_loaded(tmp_path):
     load.assert_called_once_with(str(tract_path))
     assert result.success
     assert result.tract_loaded
+
+
+def test_enabled_legend_receives_rendered_region_actors():
+    scene_class = MagicMock()
+    scene = scene_class.return_value
+    root_actor = MagicMock()
+    region_actor = MagicMock()
+    scene.add_brain_region.side_effect = [root_actor, region_actor]
+    modules = _render_modules(scene_class)
+
+    with patch.dict(sys.modules, modules):
+        result = _engine().render_scene(
+            [{"acronym": "VISp", "color": "#ff0000"}],
+            show_legend=True,
+        )
+
+    modules["vedo"].LegendBox.assert_called_once()
+    assert modules["vedo"].LegendBox.call_args.kwargs["entries"] == [region_actor]
+    assert result.success

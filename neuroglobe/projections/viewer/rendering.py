@@ -45,7 +45,7 @@ class RenderEngine:
 
     def render_scene(self, region_config: list, tract_file: Path = None, alpha=0.5, output_dir: Path = None, metadata: dict = None, visualization_mode="density", show_legend=True, data_mode="Mean"):
         from brainrender import Scene, settings
-        from vedo import Text2D, Volume
+        from vedo import LegendBox, Text2D, Volume
 
         settings.SHOW_AXES = AESTHETICS.get("show_axes", False)
         settings.WHOLE_SCREEN = AESTHETICS.get("whole_screen", False)
@@ -55,6 +55,7 @@ class RenderEngine:
         )
         result = RenderResult(success=False)
         scene = Scene(atlas_name=self.atlas_name, title="")
+        legend_actors = []
         
         # --- 0. CONTEXT (ROOT) ---
         self.root_actor = None
@@ -97,6 +98,7 @@ class RenderEngine:
                         )
                         actor_left.name = f"{acronym}_L"
                         actor_left.caption(f"{acronym} (L)")
+                        legend_actors.append(actor_left)
                     
                     # 2. Right Actor (Keep X > 5700)
                     # Normal (-1, 0, 0) cuts -X side (Left) -> Keeps Right. Correct.
@@ -107,6 +109,7 @@ class RenderEngine:
                         )
                         actor_right.name = f"{acronym}_R"
                         actor_right.caption(f"{acronym} (R)")
+                        legend_actors.append(actor_right)
                     if actor_left or actor_right:
                         result.regions_added += 1
 
@@ -117,6 +120,7 @@ class RenderEngine:
                     if reg_actor:
                         # FORCE the name to be the acronym so picking works
                         reg_actor.name = acronym
+                        legend_actors.append(reg_actor)
                         result.regions_added += 1
             except Exception as e:
                 log.warning(f"[WARN] Failed to add region {acronym}: {e}")
@@ -179,6 +183,7 @@ class RenderEngine:
                 if tract_actor:
                     # The file header/mesh geometry is the registration source.
                     scene.add(tract_actor)
+                    legend_actors.append(tract_actor)
                     result.tract_loaded = True
 
             except Exception as e:
@@ -192,7 +197,20 @@ class RenderEngine:
 
 
         if show_legend:
-            log.info("[RENDER] Legend is disabled in this version for stability.")
+            try:
+                legend = LegendBox(
+                    entries=legend_actors,
+                    nmax=20,
+                    c="black",
+                    bg="white",
+                    alpha=0.8,
+                    pos="top-right",
+                )
+                scene.add(legend)
+            except Exception as error:
+                warning = f"Legend: {error}"
+                log.warning("[WARN] %s", warning)
+                result.warnings.append(warning)
 
         # --- 4. INTERACTION (CAMERAS & SAVING) ---
         self.output_dir = output_dir

@@ -167,18 +167,10 @@ class ViewerController:
         if not self.current_tract_id:
             return False, "Error: No tractography ID loaded (Load CSV first)."
 
-        raw_filename = f"{self.current_tract_id}_{metric}.nrrd"
-        raw_path = self.tracts_dir / raw_filename
-        
-        # Fallback for legacy files
-        if not raw_path.exists() and metric == "density":
-             legacy_path = self.tracts_dir / f"{self.current_tract_id}.nrrd"
-             if legacy_path.exists():
-                 raw_path = legacy_path
-                 log.info(f"[CONTROLLER] Using legacy density file: {raw_path.name}")
+        raw_path = self._find_raw_tract(metric)
 
-        if not raw_path.exists():
-             return False, f"Error: Raw file not found: {raw_path.name}"
+        if raw_path is None:
+            return False, f"Error: Raw {metric} file not found."
 
         if status_callback: status_callback(f"Status: Filtering {metric.capitalize()}... (Please Wait)")
         log.info(f"[CONTROLLER] Starting Filter Process for {metric}...")
@@ -230,6 +222,18 @@ class ViewerController:
              log.error(f"[CONTROLLER] Exception: {e}")
              return False, f"Error during filtering: {e}"
 
+    def _find_raw_tract(self, metric: str) -> Optional[Path]:
+        candidates = [
+            self.tracts_dir / f"{self.current_tract_id}_{metric}.nrrd",
+            self.tracts_dir / f"{self.current_tract_id}_{metric}.mhd",
+        ]
+        if metric == "density":
+            candidates.append(self.tracts_dir / f"{self.current_tract_id}.nrrd")
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
     def render_scene(self, 
                      selection: List[Dict[str, Any]], 
                      viz_mode: str, 
@@ -237,6 +241,7 @@ class ViewerController:
                      is_csv_seed: bool, 
                      show_legend: bool = True, 
                      data_mode: str = "Mean",
+                     metric: str = "density",
                      status_callback: Optional[Callable[[str], None]] = None) -> Tuple[bool, str]:
         """
         Orchestrates the rendering of the 3D Scene.
@@ -247,33 +252,29 @@ class ViewerController:
             return False, "Error: No valid regions selected."
 
         # --- TRACTOGRAPHY MANAGEMENT ---
-        metric = "density" # Hardcoded for now
         tract_path = None
         
         if viz_mode == "None":
             tract_path = None
             log.info("[CONTROLLER] Viz Mode: None (Tracts hidden)")
 
-        elif viz_mode == "Density (Raw)":
+        elif viz_mode in {"Raw Volume", "Density (Raw)"}:
             fixed_path = self.tracts_dir / f"{self.current_tract_id}_{metric}_fixed.vtk"
-            raw_path = self.tracts_dir / f"{self.current_tract_id}_{metric}.nrrd"
-            legacy_path = self.tracts_dir / f"{self.current_tract_id}.nrrd"
+            raw_path = self._find_raw_tract(metric)
 
             if fixed_path.exists():
                 tract_path = fixed_path
                 log.info(f"[CONTROLLER] Using FIXED {metric} (Mesh): {fixed_path.name}")
-            elif raw_path.exists():
+            elif raw_path is not None:
                 tract_path = raw_path
                 log.info(f"[CONTROLLER] Using RAW {metric}: {raw_path.name}")
-            elif legacy_path.exists() and metric == "density":
-                tract_path = legacy_path
-                log.info(f"[CONTROLLER] Using LEGACY {metric}: {legacy_path.name}")
             else:
-                log.warning(f"[CONTROLLER] Raw file not found: {raw_path.name}")
-                if status_callback: status_callback("Error: Raw density file not found.")
-                return False, f"Error: Raw density file not found: {raw_path.name}"
+                log.warning("[CONTROLLER] Raw %s file not found", metric)
+                if status_callback:
+                    status_callback(f"Error: Raw {metric} file not found.")
+                return False, f"Error: Raw {metric} file not found."
 
-        elif viz_mode == "Density (Filtered)":
+        elif viz_mode in {"Filtered Mesh", "Density (Filtered)"}:
             filtered_path = self.current_filtered_path
             if filtered_path and filtered_path.exists():
                 sidecar_path = filtered_path.with_suffix(".manifest.json")
@@ -281,6 +282,8 @@ class ViewerController:
                     sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
                     if int(sidecar["experiment_id"]) != int(self.current_tract_id):
                         raise ValueError("experiment ID mismatch")
+                    if sidecar.get("metric") != metric:
+                        raise ValueError("metric mismatch")
                 except Exception as error:
                     return False, f"Error: Filter provenance is invalid: {error}"
                 tract_path = filtered_path

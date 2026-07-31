@@ -164,14 +164,15 @@ class ViewerGUI:
                 acronym = combo_value.replace("[SEED] ", "").split("|", 1)[0].strip()
                 if acronym:
                     targets.append(acronym)
+        metric = dpg.get_value("combo_tract_metric")
         success, message = self.controller.filter_tracts(
-            metric="density",
+            metric=metric,
             target_regions=targets or None,
             status_callback=lambda msg: dpg.set_value("status_text", msg)
         )
         dpg.set_value("status_text", message)
         if success:
-            dpg.set_value("combo_viz_mode", "Density (Filtered)")
+            dpg.set_value("combo_viz_mode", "Filtered Mesh")
 
     def run_render(self):
         selection = []
@@ -208,6 +209,7 @@ class ViewerGUI:
             selection.append(item_config)
 
         viz_mode = dpg.get_value("combo_viz_mode")
+        tract_metric = dpg.get_value("combo_tract_metric")
         seed_name, is_csv_seed = self.get_current_seed_info()
         show_legend = dpg.get_value("chk_legend")
 
@@ -218,6 +220,7 @@ class ViewerGUI:
             is_csv_seed, 
             show_legend=show_legend,
             data_mode=mode,
+            metric=tract_metric,
             status_callback=lambda msg: dpg.set_value("status_text", msg)
         )
         dpg.set_value("status_text", message)
@@ -277,13 +280,23 @@ class ViewerGUI:
             # --- RENDER BAR (Bottom) ---
             with dpg.group(horizontal=True):
                 # Visualization Mode (Mesh/Raw/None)
-                dpg.add_combo(items=["None", "Density (Raw)", "Density (Filtered)"], 
-                              default_value="None", tag="combo_viz_mode", width=180)
+                dpg.add_combo(
+                    items=["None", "Raw Volume", "Filtered Mesh", "Streamlines (Tubes)"],
+                    default_value="None",
+                    tag="combo_viz_mode",
+                    width=180,
+                )
+
+                dpg.add_combo(
+                    items=["density", "energy"],
+                    default_value="density",
+                    tag="combo_tract_metric",
+                    width=100,
+                )
                 
                 dpg.add_spacer(width=10)
                 
-                # Legend (Disabled/Coming Soon)
-                dpg.add_checkbox(label="Legend (Coming Soon)", default_value=False, tag="chk_legend", enabled=False)
+                dpg.add_checkbox(label="Legend", default_value=True, tag="chk_legend")
                 
                 dpg.add_spacer(width=20)
                 
