@@ -4,6 +4,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+from neuroglobe.stereotaxic.transform import DEFAULT_STEREOTAXIC_TRANSFORM
+
 # --- Constants & Paths ---
 BASE_PATH = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_PATH.parents[1]
@@ -93,7 +95,10 @@ class StereotaxicApp(ctk.CTk):
 
         ctk.CTkLabel(
             coord_frame,
-            text="Approximate stereotaxic (mm; unvalidated)",
+            text=(
+                "Literature estimate (mm; not for surgery)\n"
+                f"{DEFAULT_STEREOTAXIC_TRANSFORM.profile_id}"
+            ),
             font=("Arial", 11, "bold"),
             text_color="gray",
         ).pack(pady=(2, 0))
@@ -167,10 +172,10 @@ class StereotaxicApp(ctk.CTk):
                     if line:
                         stripped = line.strip()
                         # Intercept coordinates from brainrender hover events
-                        if stripped.startswith("COORD_APPROX|"):
+                        if stripped.startswith("COORD_ESTIMATE|"):
                             parts = stripped.split("|")
-                            if len(parts) == 4:
-                                ap, ml, dv = parts[1], parts[2], parts[3]
+                            if len(parts) == 5:
+                                ap, ml, dv = parts[2], parts[3], parts[4]
                                 text_val = f"AP: {ap} | ML: {ml} | DV: {dv}"
                                 self.after(0, self.coord_label.configure, {"text": text_val})
                         else:

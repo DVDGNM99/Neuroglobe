@@ -4,6 +4,8 @@ import sys
 import os
 import threading
 
+from neuroglobe.stereotaxic.transform import DEFAULT_STEREOTAXIC_TRANSFORM
+
 def render_scene(acronyms, frontal_slice):
     os.environ.setdefault("BRAINRENDER_LOG_LEVEL", "INFO")
     from brainrender import Scene, settings
@@ -11,6 +13,11 @@ def render_scene(acronyms, frontal_slice):
     import vtk
 
     settings.SHOW_AXES = False
+    transform = DEFAULT_STEREOTAXIC_TRANSFORM
+    print(
+        f"[WARN] Stereotaxic profile {transform.profile_id} is a literature "
+        "estimate and is not validated for surgical targeting."
+    )
     print(f"[INFO] Initializing BrainRender Scene...")
     scene = Scene(title="Neuroglobe Stereotaxic Viewer", atlas_name="allen_mouse_25um")
 
@@ -62,26 +69,16 @@ def render_scene(acronyms, frontal_slice):
     scene.add(hud)
 
     # --- 3. Dynamic Stereotaxic Coordinates & Mouse Hover ---
-    # We use Standard Approx for allen_mouse_25um based on literature coordinates mapping:
-    # AP: Bregma is at pixel ~215 -> 5375 um
-    # DV: Bregma is at surface ~ 0 um
-    # ML: Bregma is at midline -> 5700 um
-    BREGMA_AP_UM = 5375
-    BREGMA_ML_UM = 5700
-    BREGMA_DV_UM = 200 # Approx surface
-
     def on_mouse_move(event):
         # In vedo, event.picked3d gives the 3D coordinates in microns
         coords = event.picked3d
         if coords is not None and len(coords) == 3:
-            # Convert to mm centered on Bregma
-            # Note: Allen ARA orientations: X is AP (front to back), Y is DV (top to bottom), Z is ML (left to right)
-            ap_mm = -(coords[0] - BREGMA_AP_UM) / 1000.0  # + indicates anterior to bregma
-            dv_mm = -(coords[1] - BREGMA_DV_UM) / 1000.0  # + indicates ventral to bregma (depth)
-            ml_mm = (coords[2] - BREGMA_ML_UM) / 1000.0   # + indicates right hemisphere
-
-            # Print strictly formatted string for the GUI to parse
-            print(f"COORD_APPROX|{ap_mm:.1f}|{ml_mm:.1f}|{dv_mm:.1f}", flush=True)
+            stereotaxic = transform.ccf_to_stereotaxic(coords)
+            print(
+                f"COORD_ESTIMATE|{transform.profile_id}|{stereotaxic.ap_mm:.1f}|"
+                f"{stereotaxic.ml_mm:.1f}|{stereotaxic.dv_mm:.1f}",
+                flush=True,
+            )
 
     def on_keypress(event):
         key = event.keypress
@@ -122,7 +119,7 @@ def render_scene(acronyms, frontal_slice):
 
     # If the user toggled the "Coronal Frontal Slice" on launch, we initialize it active at center
     if frontal_slice:
-        clip_plane.SetOrigin(5400, 0, 0) # Near bregma
+        clip_plane.SetOrigin(transform.bregma_ccf_um[0], 0, 0)
 
     for act in all_actors:
         # Brainrender actors wrap vedo actors. The underlying vtk actor holds mappers.
