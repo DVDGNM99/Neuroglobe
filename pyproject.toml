@@ -1,65 +1,66 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuroglobe"
-version = "4.0.0"
-description = "Advanced 3D Viewer for Allen Brain Atlas Connectivity"
+version = "5.0.0"
+description = "Allen CCF connectivity and gene-expression visualization tools"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {file = "LICENSE"}
-authors = [
-  {name = "Dr. David Ganem"}
-]
-keywords = ["neuroscience", "atlas", "brainrender", "vtk"]
-
-# Common dependencies
+requires-python = ">=3.10,<3.13"
+license = {text = "Proprietary"}
+authors = [{name = "Dr. David Ganem"}]
 dependencies = [
-    "numpy>=1.23.5",
-    "pandas>=2.3.3",
-    "pyyaml>=6.0",
-    "customtkinter",
-    "jupyter",
-    "ipykernel",
-    "pytest",
+  "numpy>=1.23.5",
+  "pandas>=1.5.3,<2",
+  "PyYAML>=6",
 ]
 
 [project.optional-dependencies]
-# Dependencies for the Mining Pipeline (envs/allensdk.yml)
 miner = [
-    "allensdk>=2.16.2",
-    "tables>=3.9.2",
-    "SimpleITK>=2.0.0",
+  "allensdk==2.16.2",
+  "SimpleITK>=2",
+  "tables>=3.9",
 ]
-
-# Dependencies for the 3D Viewer (envs/brainglobe_render.yml)
 viewer = [
-    "brainrender>=2.1.16",
-    "vedo>=2025.5.4",
-    "brainglobe-atlasapi>=2.1.0",
-    "brainglobe-utils>=0.6.3",
-    "brainglobe-space>=1.0.3",
-    "morphapi",
-    "napari>=0.6.6",
-    "vtk>=9.2.6",
-    "k3d>=2.17.0",
-    "matplotlib>=3.5.0",
-    "seaborn>=0.13.2",
-    "scipy>=1.15.2",
-    "rich>=14.2.0",
-    "typer>=0.20.0",
-    "dearpygui>=1.6.0",
+  "brainrender>=2.1.16",
+  "brainglobe-atlasapi>=2.1",
+  "dearpygui>=1.6",
+  "matplotlib>=3.7",
+  "scipy>=1.10",
+  "vedo>=2025.5.4",
+  "vtk>=9.2.6",
 ]
+desktop = ["customtkinter>=5"]
+dev = ["pytest>=8,<10", "ruff>=0.12"]
+
+[project.scripts]
+neuroglobe-fetch = "neuroglobe.projections.miner.fetch:main"
+neuroglobe-aggregate = "neuroglobe.projections.miner.aggregate:main"
+neuroglobe-extract-tracts = "neuroglobe.projections.miner.extract_tracts:main"
+neuroglobe-analysis = "neuroglobe.projections.miner.miner_analysis:main"
+neuroglobe-viewer = "neuroglobe.projections.viewer.main:main"
+neuroglobe-genetics-fetch = "neuroglobe.genetics.miner.fetch_genes:main"
+neuroglobe-genetics-filter = "neuroglobe.genetics.miner.filter_volume:main"
+neuroglobe-genetics-viewer = "neuroglobe.genetics.viewer.controller:main"
+neuroglobe-stereotaxic = "neuroglobe.stereotaxic.gui:main"
+neuroglobe-stereotaxic-render = "neuroglobe.stereotaxic.render:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["neuroglobe*"]
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = "-v --tb=short"
-testpaths = ["tests"]
-python_files = "test_*.py"
-log_cli = true
-log_cli_level = "INFO"
+addopts = "-q --tb=short"
+testpaths = ["projections/tests", "tests"]
+markers = [
+  "gui: interactive GUI tests",
+  "integration: external SDK, atlas, or renderer tests",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

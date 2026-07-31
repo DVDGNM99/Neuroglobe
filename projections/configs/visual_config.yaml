@@ -1,0 +1,10 @@
+# --- AESTHETIC CONFIGURATION ---
+aesthetics:
+  show_axes: false
+  whole_screen: false
+  background_color: "white"
+  screenshot_transparent_background: true
+  default_alpha: 0.8 # Transparency for brain regions
+
+# Registration is read from the volume/mesh physical geometry. Runtime
+# scale/rotation/translation heuristics are intentionally unsupported.

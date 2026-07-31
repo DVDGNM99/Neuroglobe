@@ -1,0 +1,16 @@
+name: allensdk
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy=1.23.5
+  - tables=3.9.2
+  - pytest=9.0.2
+  - pip
+  - pip:
+    - allensdk==2.16.2
+    - pandas==1.5.3
+    - SimpleITK>=2
+    - PyYAML>=6
+    - customtkinter

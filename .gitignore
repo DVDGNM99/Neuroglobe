@@ -10,6 +10,7 @@ Desktop.ini
 # --- Build & Distribution ---
 dist/
 build/
+.tmp-wheel/
 *.egg-info/
 .eggs/
 
@@ -35,23 +36,34 @@ logs/
 *.log
 
 # --- Data ---
-# Ignore all raw data by default
-data/raw/*
-# keep only selected demo items
-!data/raw/manifest.json
-!data/raw/experiment_583747816/
-!data/raw/experiment_480074702/
+# Large scientific inputs and derived artifacts stay outside normal Git.
+projections/data/raw/
+projections/data/processed/tracts/
+projections/data/processed/*.csv
+projections/analysis/*.csv
+projections/analysis/data/*.csv
 
-# Ignore heavy raw demo volumes (avoid GitHub >50MB warnings)
-data/raw/experiment_480074702/projection_density_25.nrrd
-data/raw/experiment_583747816/projection_density_25.nrrd
+genetics/data/
+genetics/analysis/cache/
+genetics/analysis/images/
+genetics/configs/runtime_state.json
+genetics/runtime/
 
-
-# IMPORTANT: ignore ALL tract processed outputs (too large for GitHub)
-data/processed/tracts/
+# Analysis notebooks are local working artifacts, not source distributions.
+*.ipynb
 
 # --- Scenes / Output ---
 scenes/
+projections/scenes/
+genetics/scenes/
 
 # --- Scripts ---
 scripts/
+
+# --- Local review/development notes and superseded prototypes ---
+FULL_CODE_REVIEW_PROMPT.md
+genetics/PLAN.md
+genetics/genetics_plan.md
+genetics/test_orient.py
+genetics/configs/gene_config.yaml
+stereotaxic/ultimarichiesta.md

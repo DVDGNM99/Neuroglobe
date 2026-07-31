@@ -1,146 +1,100 @@
-# NeuroGlobe 5.0: Comprehensive Manual
+# Neuroglobe
 
-**NeuroGlobe** is a complete suite for mining, analyzing, and visualizing mouse brain connectivity data. It bridges the gap between the Allen Brain Atlas API and modern 3D rendering technologies.
+Neuroglobe 5.0 raccoglie tre strumenti di ricerca basati su Allen CCF e
+BrainGlobe:
 
----
+- `projections`: mining Allen Mouse Connectivity, aggregazione e viewer 3D;
+- `genetics`: download, mascheratura fisica e rendering di expression grids;
+- `stereotaxic`: viewer sperimentale con piano AP e coordinate Bregma
+  approssimate.
 
-## 📸 Examples
-![Whole brain Serotonine projections](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Whole%20brain%20Serotonine%20projections.png)
-![Filtered Serotonine projections](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Filtered%20Serotonine%20projections%20in%20cortical%20target%20regions.png)
-![Cortical targets Heatmaps](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Cortical%20targets%20Heatmaps%20of%20Serotonine%20inputs.png)
-![Serotonine projections in target regions](https://github.com/DVDGNM99/Python-assignments-main/blob/main/Images/Serotonine%20projections%20in%20target%20regions.png)
+La review originale è in [FULL_CODE_REVIEW.md](FULL_CODE_REVIEW.md). Le
+correzioni implementate dopo la review non rendono automaticamente validati i
+risultati scientifici storici: CSV, NRRD, VTK e scene precedenti devono essere
+rigenerati, e alignment/coordinate richiedono ancora un gold standard esterno.
 
----
+## Correzioni implementate
 
-## ⚙️ Setup & Environments
+- package unico `neuroglobe` 5.0.0, senza namespace top-level `src` né
+  manipolazioni di `sys.path`;
+- convenzione condivisa `x=AP`, `y=DV`, `z=ML`, unità in micrometri;
+- lateralità calcolata da Allen `injection_z`, con midline/missing espliciti;
+- split `Both` sul piano medio-sagittale ML/Z derivato dalla geometria atlas;
+- NRRD projection density Allen conservato con header originale;
+- rimozione di rotazioni, scaling e permutazioni euristiche nei renderer;
+- maschere genetics ricampionate nello spazio fisico con nearest-neighbor;
+- config validata, QC minimo applicato e target deduplicati;
+- mesh filtrate legate a experiment/config hash con sidecar di provenance;
+- download genetics HTTPS, streaming, timeout, estrazione ZIP sicura e
+  directory temporanee isolate;
+- subprocess GUI con stream unificati e return code controllati;
+- test headless isolati dalle dipendenze GUI.
 
-Why do we need two separate environments?
-The **AllenSDK** (used for downloading data) relies on older scientific libraries, whereas **BrainGlobe/Vedo** (used for 3D rendering) requires cutting-edge graphics libraries. To prevent conflicts and crashes, we keep them strictly separated.
+## Installazione
 
-### 1. Preparation
-Ensure you have **Conda** installed. You will create three spaces:
-*   **`allensdk`**: The "Miner". Handles API communication, data downloading, and statistical analysis.
-*   **`brainglobe_render`**: The "Viewer". Handles the 3D interactive display.
-*   **`jupyter_analysis`**: The "Analyst". Optional environment for running the analysis notebooks and generating statistical plots.
+Dalla root:
 
-### 2. Installation Commands
-```bash 
-# 1. Create Miner Environment
-conda env create -f envs/allensdk.yml
-
-# 2. Create Viewer Environment
-conda env create -f envs/brainglobe_render.yml
-
-# 3. Install Project in Editable Mode (Required for both)
+```powershell
+# Miner projections
 conda activate allensdk
-pip install -e .
+python -m pip install -e ".[miner,desktop]"
+
+# Viewer projections e stereotaxic
 conda activate brainglobe_render
-pip install -e .
-
-# 3. Create Analysis Environment (Optional, for Notebooks)
-conda env create -f envs/jupyter_analysis.yml
+python -m pip install -e ".[viewer,desktop]"
 ```
 
----
+Genetics usa AllenSDK, SimpleITK e BrainGlobe; predisporre un ambiente che
+includa gli extra `miner`, `viewer` e `desktop`.
 
-## 🚀 Running the Software
+## Avvio
 
-The entry point for everything is the **Launcher**.
+```powershell
+# Launcher projections
+python projections/GUI_caller/launcher.py
 
-### Activation
-You must activate a compatible environment before starting. Both environments contain the necessary GUI library (`customtkinter`). We recommend starting with `allensdk`:
+# Moduli canonici
+python -m neuroglobe.projections.miner.fetch
+python -m neuroglobe.projections.miner.extract_tracts
+python -m neuroglobe.projections.miner.aggregate
+python -m neuroglobe.projections.miner.filter_csv
+python -m neuroglobe.projections.viewer.main
 
-```bash
-conda activate allensdk
-python GUI_caller/launcher.py
+# Genetics
+python genetics/GUI_caller/genetics_gui.py
+
+# Stereotaxic
+python -m neuroglobe.stereotaxic.gui
 ```
 
-### The Launcher Interface
-The Launcher presents you with a choice based on your goal (see [TUTORIAL.md - The Launcher](TUTORIAL.md#🚀-the-launcher) for a visual guide):
-1.  **Open Miner GUI**: Choose this if you need to **generate new data**. Use this to search for a new brain region (Seed) or update existing datasets.
-2.  **Launch Viewer**: Choose this if you already have data (CSVs and .nrrd files) and want to **visualize** the results immediately. (some demo data is provided in the `data/processed` folder DR_connectivity_filtered.csv, ACA_connectivity_filtered.csv, as well as DR_density.nrrd and ACA_density.nrrd)
+Dopo l’installazione sono disponibili anche i console script dichiarati in
+`pyproject.toml`, tra cui `neuroglobe-fetch`, `neuroglobe-aggregate` e
+`neuroglobe-viewer`.
 
----
+## Test e build
 
-## ⛏️ The Miner GUI
+```powershell
+python -m compileall -q neuroglobe projections/GUI_caller genetics/GUI_caller
+python -m pytest -q
+python -m pip wheel . --no-deps --wheel-dir .tmp-wheel
+```
 
-This tool manages the interface with the Allen Institute.
+Stato verificato il 2026-07-31: 33 test passati, 2 skip intenzionali; wheel
+`neuroglobe-5.0.0-py3-none-any.whl` costruita correttamente.
 
-### 1. Experiment Search
-*   **Input Seed**: Enter the acronym of the injection site (e.g., `VISp`, `DR`).
-*   **Behavior**: When you run the search, the Miner queries the Allen API for **ALL** available experiments involving that injection site. It does not filter them yet; it retrieves the entire catalog available in the database.
-    > ⚠️ **Note**: If the data is not already in your local cache, fetching and aggregating hundreds of experiments can take **dozens of minutes**. Please be patient; the console will update you on progress.
-    > ⚠️ **Crucial**: Avoid selecting specific layers (e.g., `MO1`) as they may cause visualization issues. Always choose the Generic Parent (e.g., `MO`). See [TUTORIAL.md - Best Practices](TUTORIAL.md#⚠-best-practices-region-selection-layers-vs-areas) for details.
+## Limiti scientifici residui
 
-### 2. Data Processing & Logic (Crucial!)
-When you click "Run Pipeline", two distinct extractors work in parallel. It is vital to understand the difference between what you *see* as a cloud and what you *see* as region colors.
+- gli artefatti generati prima di questa migrazione non hanno geometria o
+  lateralità affidabili;
+- manca ancora un phantom/landmark gold-standard end-to-end per volumi e mesh;
+- la selezione del volume rappresentativo resta single-animal, mentre il CSV è
+  multi-esperimento;
+- le soglie di isosurface e percentile genetics non sono validate
+  biologicamente;
+- le coordinate stereotaxic sono dichiaratamente approssimate e non sono una
+  trasformazione stereotaxic validata;
+- BrainRender può dipendere dai permessi della cache BrainGlobe dell’utente.
 
-#### A. 3D Volume Extraction (The Cloud)
-*   **Selection Logic**: For 3D tractography visualization, we cannot average volumes easily on the fly. Therefore, the algorithm automatically identifies the **Single Best Experiment** (the one with the largest injection volume) to serve as the representative "Avatar" for that connection.
-*   **Output**: Saves `.nrrd` (Raw density) and `.vtk` (Mesh) files for this specific animal.
-
-#### B. Statistical Aggregation (The Heatmap)
-*   **Selection Logic**: For the quantitative data (CSV), the miner uses **ALL** experiments found.
-*   **Calculation**: It downloads the projection values for every target region across all N animals and calculates the **Grand Mean** (Average).
-*   **Implication**:
-    *   **Region Colors** in the Viewer represent the robust, average connectivity across the entire population.
-    *   **Projection Cloud** in the Viewer represents the physical pathway of the single best representative animal.
-*   *Note: Future updates may implement an "Average Brain" volume, but currently, this hybrid approach offers the best balance of anatomical clarity and statistical robustness.*
-
-### 3. File Generation
-The Miner generates several files in `data/processed/`:
-*   `{SEED}_connectivity.csv`: The raw statistical average of all regions.
-*   `{SEED}_connectivity_filtered.csv`: A cleaned version containing only your specific regions of interest (as defined in `configs/mining_config.yaml`).
-*   `tracts/{ID}_density.nrrd`: The 3D volume of the representative experiment.
-
-### 4. Output & Generated Files (`scenes/`)
-The **`scenes/`** folder is your gallery.
-*   **Purpose**: Stores high-resolution screenshots generated from the Viewer.
-*   **Demo Content**: We have included some demo captures (e.g., *Whole brain Serotonine projections*) to show potential results.
-*   **How to Save**: See [TUTORIAL.md - Saving Your Work](TUTORIAL.md#4-saving-your-work-screenshots) for instructions on capturing scenes.
-
----
-
-## 📊 Statistical Analysis
-
-The "Analysis" button in the GUI triggers a post-processing script.
-
-*   **Function**: It takes the raw aggregation data and performs higher-level stats (e.g., calculating Correlation Coefficients, Variability metrics).
-*   **Interactive Notebook**:
-    For detailed plots, matrices, and charts, use the dedicated Jupyter Notebook:
-    *   **File**: `analysis/projection_stats_analysis.ipynb`
-    *   **Usage**: Run this notebook *after* the Miner has finished. It loads the generated CSVs and produces publication-ready visualizations (Bar charts of strong targets, Inter-animal variability plots, etc.). future updates will include broader and more detailed analysis, in addition to the present ones.
-
----
-
-## 🖥️ The Viewer GUI
-
-The Viewer is designed for exploration.
-
-### 1. Top Panel: Data Control
-(See [TUTORIAL.md - Loading Data](TUTORIAL.md#1-loading-data) and [Visualization Modes](TUTORIAL.md#2-visualization-modes))
-*   **Source**: Dropdown to select which CSV file to load. Defaults to your filtered datasets.
-*   **View Mode**: Changes how the regions are colored.
-    *   *Mean*: **Symmetric visualization**. It averages the values of Left and Right hemispheres. Useful for general connectivity strength but hides laterality.
-    *   *Ipsilateral*: Shows projections to the **same side** as the injection.
-    *   *Contralateral*: Shows crossing projections to the **opposite side**.
-    *   *Both*: **The Asymmetric Truth**. Splits the brain visualization: the Left side renders Left Hemisphere data, and the Right side renders Right Hemisphere data independently. This allows you to see lateralization (e.g., strong Ipsilateral vs weak Contralateral) simultaneously.
-
-### 2. Manual Controls
-*   **+ Region / + Group**: Allows you to manually add brain structures to the scene even if they aren't in your CSV.
-*   **Filter Raw Volume**: This button creates a "Masked" version of the tractography cloud. It removes all projections *except* those ending inside your selected regions. (See [TUTORIAL.md - Tractography](TUTORIAL.md#3-tractography-the-cloud))
-
-### 3. Bottom Panel: Rendering
-(See [TUTORIAL.md - Tractography](TUTORIAL.md#3-tractography-the-cloud))
-*   **Visualization Mode**:
-    *   *None*: Statistics only (Region colors).
-    *   *Density (Raw)*: The full 3D cloud from the representative animal.
-    *   *Density (Filtered)*: The clean, masked cloud focusing on your targets.
-*   **Render 3D Scene**: Launches the interactive window.
-
-### 4. Interactive Controls (In-Window)
-(See [TUTORIAL.md - Saving Your Work](TUTORIAL.md#4-saving-your-work-screenshots))
-*   **Rotate/Zoom**: Mouse controls.
-*   **Keyboard Shortcuts**:
-    *   `X`, `Y`, `Z`: Snap camera to side/front/top views.
-    *   `S`: **Save Screenshot**. Saves high-res PNGs to `scenes/`.
+I dettagli operativi sono in [walkthrough.md](walkthrough.md); finding,
+motivazioni e roadmap completa restano in
+[FULL_CODE_REVIEW.md](FULL_CODE_REVIEW.md).
