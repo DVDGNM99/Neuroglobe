@@ -7,6 +7,7 @@ import tkinter as tk
 import threading
 
 from neuroglobe.core.jobs import CancellationToken, JobProgress, run_streaming_job
+from neuroglobe.projections.config import MINING_METRICS
 
 # --- Constants & Paths ---
 BASE_PATH = Path(__file__).resolve().parent
@@ -103,8 +104,7 @@ class MinerApp(ctk.CTk):
         
         # 3. Metric
         raw_metric = self.opt_metric.get()
-        # Clean string to remove warnings like "(Coming Soon)"
-        metric_val = raw_metric.split(" ")[0]
+        metric_val = raw_metric
         
         if "processing" not in self.config_data: self.config_data["processing"] = {}
         self.config_data["processing"]["metric"] = metric_val
@@ -245,7 +245,10 @@ class MinerApp(ctk.CTk):
 
         # 4. Metric
         ctk.CTkLabel(left_panel, text="Aggregation Metric", font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
-        self.opt_metric = ctk.CTkOptionMenu(left_panel, values=["projection_density", "projection_energy (Coming Soon)", "projection_volume (Coming Soon)"])
+        self.opt_metric = ctk.CTkOptionMenu(
+            left_panel,
+            values=list(MINING_METRICS),
+        )
         self.opt_metric.pack(anchor="w", pady=5)
         
         if "processing" in self.config_data and "metric" in self.config_data["processing"]:

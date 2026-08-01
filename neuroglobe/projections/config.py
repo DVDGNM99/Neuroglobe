@@ -20,7 +20,12 @@ _SECTION_KEYS = {
     "selection": {"custom_targets", "use_custom_targets"},
 }
 _AGGREGATION_MODES = {"mean", "median", "max"}
-_METRICS = {"projection_density", "projection_energy", "projection_volume"}
+MINING_METRICS = (
+    "projection_density",
+    "projection_energy",
+    "projection_volume",
+)
+_METRICS = frozenset(MINING_METRICS)
 
 
 def _deduplicate(values: list[Any]) -> list[str]:

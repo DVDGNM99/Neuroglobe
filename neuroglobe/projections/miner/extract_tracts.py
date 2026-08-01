@@ -1,20 +1,22 @@
 import shutil
 from pathlib import Path
+from uuid import uuid4
 
+from neuroglobe.integration.geometry import read_nrrd_geometry
 from neuroglobe.projections.config import load_mining_config
 from neuroglobe.projections.definitions import (
     ATLAS_RESOLUTION,
+    CONFIGS_DIR,
     RAW_DATA_DIR,
     TRACTS_DIR,
-    CONFIGS_DIR,
 )
 from neuroglobe.projections.logger_config import log
 
 # --- CONFIGURATION ---
-# --- CONFIGURATION ---
 CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
 DATA_RAW_PATH = RAW_DATA_DIR
 DATA_PROCESSED_TRACTS = TRACTS_DIR
+
 
 def load_config():
     return load_mining_config(CONFIG_PATH)
@@ -27,6 +29,16 @@ def _spacing_tuple(value) -> tuple[float, float, float]:
     if len(values) != 3:
         raise ValueError(f"Expected three spacing values, got {values!r}")
     return values
+
+
+def _allen_grid_resolution() -> int:
+    spacing = _spacing_tuple(ATLAS_RESOLUTION)
+    if len(set(spacing)) != 1 or not spacing[0].is_integer():
+        raise ValueError("Allen grid download requires an isotropic integer resolution.")
+    resolution = int(spacing[0])
+    if resolution not in {10, 25, 50, 100}:
+        raise ValueError(f"Unsupported Allen grid resolution: {resolution} um.")
+    return resolution
 
 
 def _write_density_with_geometry(data, metadata, source_path: Path, destination: Path) -> None:
@@ -48,6 +60,41 @@ def _write_density_with_geometry(data, metadata, source_path: Path, destination:
     origin = metadata.get("space origin", metadata.get("origin", (0, 0, 0)))
     image.SetOrigin(tuple(float(value) for value in origin))
     sitk.WriteImage(image, str(destination), useCompression=True)
+
+
+def _download_projection_energy(
+    api,
+    experiment_id: int,
+    destination: Path,
+) -> Path:
+    """Download the supported Allen projection-energy NRRD atomically."""
+
+    destination = Path(destination)
+    if destination.is_file():
+        read_nrrd_geometry(destination)
+        return destination
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.parent / (
+        f".{destination.stem}.{uuid4().hex}.tmp.nrrd"
+    )
+    try:
+        api.download_projection_grid_data(
+            experiment_id,
+            ["projection_energy"],
+            _allen_grid_resolution(),
+            str(temporary),
+        )
+        if not temporary.is_file():
+            raise FileNotFoundError(
+                f"AllenSDK did not create projection energy: {temporary.name}"
+            )
+        read_nrrd_geometry(temporary)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return destination
+
 
 def fetch_and_process_tracts(experiment_id):
     """
@@ -98,19 +145,12 @@ def fetch_and_process_tracts(experiment_id):
     # --- 2. PROJECTION ENERGY ---
     log.info(f"  > Fetching projection_energy...")
     try:
-        # Attempt to use internal API if public method doesn't exist
-        # Note: This is a best-effort guess based on API structure
-        dest_name = f"{experiment_id}_energy.mhd" # API usually downloads MHD
+        dest_name = f"{experiment_id}_energy.nrrd"
         dest_path = DATA_PROCESSED_TRACTS / dest_name
-        
-        # Check if we can download it directly via API
-        # mcc.api is usually a GridDataApi
-        if hasattr(mcc, 'api') and hasattr(mcc.api, 'download_projection_energy'):
-            mcc.api.download_projection_energy(experiment_id, str(dest_path))
-            log.info(f"    [OK] Saved {dest_name}")
-            success_count += 1
-        else:
-            log.warning("    [SKIP] Projection Energy API not available.")
+
+        _download_projection_energy(mcc.api, experiment_id, dest_path)
+        log.info(f"    [OK] Saved {dest_name}")
+        success_count += 1
 
     except Exception as e:
         log.warning(f"    [SKIP] Failed to fetch projection_energy (Optional): {e}")
@@ -118,6 +158,7 @@ def fetch_and_process_tracts(experiment_id):
     return success_count > 0
 
 def main() -> int:
+    from neuroglobe.projections.miner.aggregate import select_representative_experiment
     from neuroglobe.projections.miner.fetch import get_experiments
 
     config = load_config()
@@ -130,7 +171,7 @@ def main() -> int:
     experiments_df, _ = get_experiments(seed, RAW_DATA_DIR)
     
     if not experiments_df.empty:
-        best_exp = experiments_df.sort_values(by="injection_volume", ascending=False).iloc[0]
+        best_exp = select_representative_experiment(experiments_df)
         best_id = int(best_exp['id'])
         log.info(f"[MINER] Selected Representative Experiment: {best_id}")
         

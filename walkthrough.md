@@ -10,7 +10,8 @@ Modificare `projections/configs/mining_config.yaml`:
 
 - `experiment.seed_acronym`: seed Allen;
 - `experiment.target_regex`: pattern degli acronimi inclusi;
-- `processing.metric`: metrica Allen;
+- `processing.metric`: `projection_density`, `projection_energy` oppure
+  `projection_volume`;
 - `processing.aggregation_mode`: `mean`, `median` o `max`;
 - `quality_control.min_injection_volume`: soglia esperimenti;
 - `quality_control.threshold_lower`: valori aggregati sotto soglia azzerati;
@@ -39,8 +40,11 @@ python -m neuroglobe.projections.miner.filter_csv
 - salva un solo primary seed;
 - produce un manifest accanto al CSV.
 
-L’estrattore copia il NRRD Allen originale quando presente nella cache. Non
-ricostruisce più spacing/orientamento con euristiche.
+L’estrattore copia il NRRD density Allen originale quando presente nella
+cache. Scarica inoltre `projection_energy` con l'API grid Allen in un NRRD
+temporaneo, ne valida la geometria e lo pubblica con rename atomico. La metrica
+`projection_volume` è disponibile nell'aggregazione CSV, ma non è un'immagine
+grid 3D esposta dall'API Allen.
 
 ### 2a. Average-volume registrato
 

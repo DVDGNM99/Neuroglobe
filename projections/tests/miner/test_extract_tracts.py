@@ -1,10 +1,32 @@
 import sys
 import types
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from neuroglobe.projections.miner import extract_tracts
+
+
+def _write_test_nrrd(path: Path) -> None:
+    path.write_bytes(
+        b"\n".join(
+            (
+                b"NRRD0004",
+                b"type: float",
+                b"dimension: 3",
+                b"space: left-posterior-superior",
+                b"sizes: 2 2 2",
+                b"space directions: (25,0,0) (0,25,0) (0,0,25)",
+                b"encoding: raw",
+                b"space origin: (0,0,0)",
+                b"",
+                b"",
+            )
+        )
+        + bytes(2 * 2 * 2 * 4)
+    )
 
 
 def _allen_modules(cache_class):
@@ -54,3 +76,45 @@ def test_cached_allen_nrrd_is_copied_without_reconstruction(tmp_path):
         destination,
     )
     assert destination.read_bytes() == source.read_bytes()
+
+
+def test_projection_energy_uses_supported_grid_api_and_atomic_nrrd(tmp_path):
+    api = MagicMock()
+
+    def download(experiment_id, images, resolution, save_file_path):
+        assert experiment_id == 102
+        assert images == ["projection_energy"]
+        assert resolution == 25
+        temporary = Path(save_file_path)
+        assert temporary.name.startswith(".102_energy.")
+        assert temporary.name.endswith(".tmp.nrrd")
+        _write_test_nrrd(temporary)
+
+    api.download_projection_grid_data.side_effect = download
+    destination = tmp_path / "tracts" / "102_energy.nrrd"
+
+    result = extract_tracts._download_projection_energy(api, 102, destination)
+
+    assert result == destination
+    assert destination.is_file()
+    assert not list(destination.parent.glob(".*.tmp.nrrd"))
+    api.download_projection_grid_data.assert_called_once()
+
+    assert extract_tracts._download_projection_energy(api, 102, destination) == destination
+    api.download_projection_grid_data.assert_called_once()
+
+
+def test_invalid_projection_energy_download_removes_partial_file(tmp_path):
+    api = MagicMock()
+    api.download_projection_grid_data.side_effect = (
+        lambda _experiment, _images, _resolution, path: Path(path).write_bytes(
+            b"not an nrrd"
+        )
+    )
+    destination = tmp_path / "tracts" / "103_energy.nrrd"
+
+    with pytest.raises(ValueError, match="NRRD"):
+        extract_tracts._download_projection_energy(api, 103, destination)
+
+    assert not destination.exists()
+    assert not list(destination.parent.glob(".*.tmp.nrrd"))

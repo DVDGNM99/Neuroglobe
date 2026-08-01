@@ -24,6 +24,8 @@ rigenerati, e alignment/coordinate richiedono ancora un gold standard esterno.
 - rimozione di rotazioni, scaling e permutazioni euristiche nei renderer;
 - maschere genetics ricampionate nello spazio fisico con nearest-neighbor;
 - config validata, QC minimo applicato e target deduplicati;
+- metriche Allen density, energy e projection volume selezionabili dal Miner;
+- projection energy 3D scaricata come NRRD tramite l'API grid Allen supportata;
 - mesh filtrate legate a experiment/config hash con sidecar di provenance;
 - download genetics HTTPS, streaming, timeout, estrazione ZIP sicura e
   directory temporanee isolate;
@@ -96,7 +98,7 @@ python -m pytest -q
 python -m pip wheel . --no-deps --wheel-dir .tmp-wheel
 ```
 
-Stato verificato il 2026-08-01: 76 test passati, 3 skip intenzionali; wheel
+Stato verificato il 2026-08-01: 86 test passati, 3 skip intenzionali; wheel
 `neuroglobe-5.0.0-py3-none-any.whl` costruita correttamente.
 
 ## Limiti scientifici residui
