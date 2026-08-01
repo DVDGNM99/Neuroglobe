@@ -13,6 +13,7 @@ from neuroglobe.core.provenance import (
     verify_manifest_integrity,
 )
 from neuroglobe.integration.cli import main
+from neuroglobe.integration.controller import compose_selected_scene, resolve_gene_volume
 from neuroglobe.integration.geometry import read_nrrd_geometry
 from neuroglobe.integration.model import IntegratedSceneSpec, LayerKind
 from neuroglobe.integration.rendering import IntegratedRenderEngine
@@ -239,3 +240,61 @@ def test_renderer_adds_projection_and_gene_without_runtime_transform(tmp_path):
     gene_actor.rotate_y.assert_not_called()
     gene_actor.scale.assert_not_called()
     scene.render.assert_called_once_with(interactive=True, zoom=1.2)
+
+
+def test_gui_composer_resolves_selected_gene_and_writes_spec(tmp_path):
+    projection = _write_nrrd(
+        tmp_path / "projection.nrrd",
+        shape=(528, 320, 456),
+        spacing=(25.0, 25.0, 25.0),
+    )
+    processed = tmp_path / "genetics" / "data" / "processed"
+    processed.mkdir(parents=True)
+    gene = _write_nrrd(
+        processed / "Htr1a_filtered.nrrd",
+        shape=(67, 41, 58),
+        spacing=(200.0, 200.0, 200.0),
+    )
+    output = tmp_path / ".neuroglobe-integrated-test.json"
+
+    spec = compose_selected_scene(
+        projection_volume=projection,
+        genes=("htr1A", "htr1A"),
+        regions=("PL", "PL"),
+        processed_data_dir=processed,
+        repository_root=tmp_path,
+        output_spec=output,
+    )
+
+    assert output.is_file()
+    assert resolve_gene_volume("htr1A", processed) == gene
+    assert [layer.label for layer in spec.layers] == ["PL", "projection", "htr1A"]
+    IntegratedSceneSpec.load(output)
+
+
+def test_gui_composer_requires_a_gene_selection(tmp_path):
+    projection, _ = _sources(tmp_path)
+
+    with pytest.raises(ValueError, match="Select at least one gene"):
+        compose_selected_scene(
+            projection_volume=projection,
+            genes=(),
+            regions=(),
+            processed_data_dir=tmp_path,
+            repository_root=tmp_path,
+            output_spec=tmp_path / ".neuroglobe-integrated-test.json",
+        )
+
+
+def test_gui_composer_keeps_temporary_spec_at_repository_root(tmp_path):
+    projection, gene = _sources(tmp_path)
+
+    with pytest.raises(ValueError, match="repository_root"):
+        compose_selected_scene(
+            projection_volume=projection,
+            genes=("Htr1a",),
+            regions=(),
+            processed_data_dir=gene.parent,
+            repository_root=tmp_path,
+            output_spec=tmp_path / "runtime" / "integrated.json",
+        )

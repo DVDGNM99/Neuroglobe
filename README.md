@@ -79,6 +79,10 @@ Dopo l’installazione sono disponibili anche i console script dichiarati in
 `pyproject.toml`, tra cui `neuroglobe-fetch`, `neuroglobe-aggregate`,
 `neuroglobe-viewer` e `neuroglobe-integrated-viewer`.
 
+Nel pannello Genetics, il pulsante **Projection + Genes** usa i geni e le
+regioni selezionati, chiede un projection-density NRRD e avvia lo stesso flusso
+integrato con validazione e job cancellabile.
+
 ## Test e build
 
 ```powershell

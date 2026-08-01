@@ -101,6 +101,11 @@ condividere lo stesso frame. Non vengono applicate rotazioni, permutazioni,
 scale o traslazioni runtime. Dopo il rendering viene scritto un manifest di run
 immutabile accanto alla specifica.
 
+Lo stesso percorso e' disponibile nel pannello Genetics tramite
+**Projection + Genes**: le checkbox determinano geni e regioni, mentre un file
+dialog seleziona il projection NRRD. Composizione/checksum sono eseguiti in
+background e il rendering usa il supervisore con cancellazione e stato.
+
 ## 6. Stereotaxic
 
 ```powershell

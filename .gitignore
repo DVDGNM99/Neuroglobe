@@ -50,6 +50,7 @@ genetics/analysis/cache/
 genetics/analysis/images/
 genetics/configs/runtime_state.json
 genetics/runtime/
+.neuroglobe-integrated-*.json
 
 # Analysis notebooks are local working artifacts, not source distributions.
 *.ipynb

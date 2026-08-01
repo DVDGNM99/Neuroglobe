@@ -4,8 +4,10 @@ import sys
 import threading
 import uuid
 from pathlib import Path
+from tkinter import filedialog
 
 from neuroglobe.core.jobs import CancellationToken, JobProgress, run_streaming_job
+from neuroglobe.integration.controller import compose_selected_scene
 
 # --- Constants & Paths ---
 BASE_PATH = Path(__file__).resolve().parent
@@ -172,7 +174,7 @@ class GeneticsMinerApp(ctk.CTk):
         t.start()
 
     def set_buttons_state(self, state):
-        btns = [self.btn_fetch_filter, self.btn_viewer]
+        btns = [self.btn_fetch_filter, self.btn_viewer, self.btn_integrated]
         for btn in btns:
             if state == "disabled":
                  btn.configure(state="disabled", fg_color="gray")
@@ -180,6 +182,8 @@ class GeneticsMinerApp(ctk.CTk):
                  btn.configure(state="normal")
                  if btn == self.btn_viewer:
                      btn.configure(fg_color="#D03B3B")
+                 elif btn == self.btn_integrated:
+                     btn.configure(fg_color="#7A4BC2")
                  else:
                      btn.configure(fg_color=["#3a7ebf", "#1f538d"])
         self.btn_cancel.configure(state="normal" if state == "disabled" else "disabled")
@@ -207,7 +211,8 @@ class GeneticsMinerApp(ctk.CTk):
         steps = [
             ("1. Fetch Volumes", "Interrogates Allen API to download grid density data for gene list."),
             ("2. Filter Spatial Data", "Applies CCFv3 brain region masks (PFC, M2, S1, RSP) to erase external data."),
-            ("3. Voxel Rendering", "Visualizes the remaining data as distinct Lego-boxes overlaid on the base atlas.")
+            ("3. Voxel Rendering", "Visualizes the remaining data as distinct Lego-boxes overlaid on the base atlas."),
+            ("4. Integrated Scene", "Validates and overlays a selected projection NRRD with the checked genes."),
         ]
 
         for step, desc in steps:
@@ -264,7 +269,19 @@ class GeneticsMinerApp(ctk.CTk):
         self.btn_fetch_filter.pack(pady=20)
 
         self.btn_viewer = ctk.CTkButton(right_panel, text="2. Engage Viewer", command=self.run_viewer, height=60, width=220, font=("Arial", 16, "bold"), fg_color="#D03B3B", hover_color="#A02B2B")
-        self.btn_viewer.pack(pady=20)
+        self.btn_viewer.pack(pady=(12, 8))
+
+        self.btn_integrated = ctk.CTkButton(
+            right_panel,
+            text="3. Projection + Genes",
+            command=self.run_integrated_viewer,
+            height=50,
+            width=220,
+            font=("Arial", 14, "bold"),
+            fg_color="#7A4BC2",
+            hover_color="#60379E",
+        )
+        self.btn_integrated.pack(pady=(8, 12))
 
         self.btn_cancel = ctk.CTkButton(
             right_panel,
@@ -305,6 +322,89 @@ class GeneticsMinerApp(ctk.CTk):
             "neuroglobe.genetics.viewer.controller",
             ["--state", state_path],
             cleanup_path=state_path,
+        )
+
+    def run_integrated_viewer(self):
+        if self.active_job is not None:
+            self.log_console("[ERROR] Another job is already running.")
+            return
+        projection_path = filedialog.askopenfilename(
+            title="Select Allen projection-density NRRD",
+            initialdir=str(REPOSITORY_ROOT / "projections" / "data"),
+            filetypes=(("NRRD volume", "*.nrrd"),),
+        )
+        if not projection_path:
+            return
+
+        selected_genes = [
+            gene for gene, variable in self.gene_checkboxes.items() if variable.get()
+        ]
+        selected_regions = [
+            region
+            for region, variable in self.region_checkboxes.items()
+            if variable.get()
+        ]
+        spec_path = REPOSITORY_ROOT / f".neuroglobe-integrated-{uuid.uuid4().hex}.json"
+        token = CancellationToken()
+        self.active_job = token
+        self.set_buttons_state("disabled")
+        self.job_status.configure(text="Validating integrated scene...")
+
+        def prepare_scene():
+            try:
+                spec = compose_selected_scene(
+                    projection_volume=Path(projection_path),
+                    genes=selected_genes,
+                    regions=selected_regions,
+                    processed_data_dir=PROJECT_ROOT / "data" / "processed",
+                    repository_root=REPOSITORY_ROOT,
+                    output_spec=spec_path,
+                )
+            except (FileNotFoundError, OSError, ValueError) as error:
+                self.after(
+                    0,
+                    self.log_console,
+                    f"[ERROR] Could not compose integrated scene: {error}",
+                )
+                spec_path.unlink(missing_ok=True)
+                self.active_job = None
+                self.after(0, self.job_status.configure, {"text": "Idle"})
+                self.after(0, lambda: self.set_buttons_state("normal"))
+                return
+            self.after(
+                0,
+                self._launch_integrated_render,
+                spec.scene_id,
+                len(selected_genes),
+                spec_path,
+                token,
+            )
+
+        threading.Thread(target=prepare_scene, daemon=True).start()
+
+    def _launch_integrated_render(
+        self,
+        scene_id: str,
+        gene_count: int,
+        spec_path: Path,
+        token: CancellationToken,
+    ):
+        if token.is_cancelled:
+            self.log_console("[INTEGRATED] Scene preparation cancelled.")
+            spec_path.unlink(missing_ok=True)
+            self.active_job = None
+            self.job_status.configure(text="Idle")
+            self.set_buttons_state("normal")
+            return
+        self.active_job = None
+        self.log_console(
+            f"[INTEGRATED] Scene {scene_id} validated with "
+            f"{gene_count} gene layer(s)."
+        )
+        self.run_module(
+            "neuroglobe.integration.cli",
+            ["render", spec_path],
+            cleanup_path=spec_path,
         )
 
 if __name__ == "__main__":
