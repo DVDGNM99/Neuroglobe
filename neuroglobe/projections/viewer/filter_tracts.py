@@ -4,6 +4,7 @@ from pathlib import Path
 from neuroglobe.projections.config import load_mining_config
 from neuroglobe.projections.definitions import CONFIGS_DIR, TRACTS_DIR
 from neuroglobe.projections.logger_config import log
+from neuroglobe.core.volumes import apply_binary_mask_inplace
 
 # --- PATH CONFIGURATION ---
 CONFIG_PATH = CONFIGS_DIR / "mining_config.yaml"
@@ -116,7 +117,13 @@ def run_filter(
 
     # 6. Apply Mask
     log.info("Applying Mask to Volume...")
-    np.multiply(vol_data, full_mask, out=vol_data, casting="unsafe")
+    chunk_plan = apply_binary_mask_inplace(vol_data, full_mask)
+    log.info(
+        "Mask applied in %d chunks (depth=%d, working set <= %.1f MiB).",
+        chunk_plan.chunk_count,
+        chunk_plan.chunk_depth,
+        chunk_plan.working_memory_bytes / (1024 * 1024),
+    )
 
     # Update volume data
     res = bg_atlas.resolution

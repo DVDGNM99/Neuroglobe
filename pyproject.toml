@@ -7,7 +7,7 @@ name = "neuroglobe"
 version = "5.0.0"
 description = "Allen CCF connectivity and gene-expression visualization tools"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.12"
 license = {text = "Proprietary"}
 authors = [{name = "Dr. David Ganem"}]
 dependencies = [
@@ -32,7 +32,12 @@ viewer = [
   "vtk>=9.2.6",
 ]
 desktop = ["customtkinter>=5"]
-dev = ["pytest>=8,<10", "ruff>=0.12"]
+dev = [
+  "build>=1.2,<2",
+  "pre-commit>=4,<5",
+  "pytest>=8,<10",
+  "ruff==0.16.1",
+]
 
 [project.scripts]
 neuroglobe-fetch = "neuroglobe.projections.miner.fetch:main"

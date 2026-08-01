@@ -11,6 +11,7 @@ from neuroglobe.genetics.definitions import (
     ensure_runtime_directories,
 )
 from neuroglobe.core.provenance import artifact_manifest, file_sha256, write_json_atomic
+from neuroglobe.core.volumes import apply_binary_mask_inplace
 
 ATLAS_NAME = "allen_mouse_25um"
 
@@ -86,8 +87,8 @@ def filter_all_volumes():
                 f"Physical mask shape {resampled_mask.shape} does not match "
                 f"gene volume {vol_data.shape}."
             )
-        filtered_data = np.asarray(vol_data, dtype=np.float32).copy()
-        filtered_data[~resampled_mask] = 0
+        filtered_data = np.asarray(vol_data, dtype=np.float32)
+        chunk_plan = apply_binary_mask_inplace(filtered_data, resampled_mask)
 
         out_img = sitk.GetImageFromArray(filtered_data)
         out_img.CopyInformation(img)
@@ -101,6 +102,12 @@ def filter_all_volumes():
                 target_regions=valid_regions,
                 coordinate_convention="Allen CCF: x=AP, y=DV, z=ML; units=um",
                 resampling="SimpleITK nearest-neighbor in physical space",
+                masking={
+                    "strategy": "axis0-chunked-in-place",
+                    "chunk_depth": chunk_plan.chunk_depth,
+                    "chunk_count": chunk_plan.chunk_count,
+                    "working_memory_bytes": chunk_plan.working_memory_bytes,
+                },
                 source={
                     "path": input_nrrd.name,
                     "sha256": file_sha256(input_nrrd),

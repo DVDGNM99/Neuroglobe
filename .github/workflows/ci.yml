@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core · ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.11"]
+
+    env:
+      MPLBACKEND: Agg
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install core and development tools
+        run: python -m pip install --upgrade pip ".[dev]"
+      - name: Critical lint checks
+        run: python -m ruff check --select=E9,F63,F7,F82 neuroglobe tests projections/tests
+      - name: Compile
+        run: python -m compileall -q neuroglobe projections/GUI_caller genetics/GUI_caller tests projections/tests
+      - name: Test
+        run: python -m pytest -q
+      - name: Build wheel and source distribution
+        run: python -m build
+      - name: Entry-point smoke tests
+        run: |
+          python -m neuroglobe.projections.viewer.main --help
+          python -m neuroglobe.stereotaxic.render --help
+          python -m neuroglobe.genetics.viewer.controller --help
+
+  optional-environments:
+    name: Optional ${{ matrix.extra }} · Ubuntu headless · Python 3.10
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        extra: [miner, viewer]
+
+    env:
+      MPLBACKEND: Agg
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install headless runtime libraries
+        if: matrix.extra == 'viewer'
+        run: sudo apt-get update && sudo apt-get install --yes libgl1 xvfb
+      - name: Install optional environment
+        run: python -m pip install --upgrade pip ".[${{ matrix.extra }},dev]"
+      - name: Test optional environment
+        if: matrix.extra == 'miner'
+        run: python -m pytest -q
+      - name: Test viewer headlessly
+        if: matrix.extra == 'viewer'
+        run: xvfb-run -a python -m pytest -q
