@@ -16,20 +16,31 @@ This document tracks planned features, with a focus on items currently visible a
 ## 🟡 Medium Complexity (Planned Features)
 
 ### 2. Allen Streamlines Integration
-**Status**: "Streamlines (Tubes)" mode is currently a placeholder or experimental.
-**Goal:** Visualize single-cell-like calculated streamlines to complement density clouds (fMOST style).
-- [ ] **Miner Update (`extract_tracts.py`)**: Fetch `projection_lines` (JSON) from Allen API.
-- [ ] **Rendering Logic**: Update `rendering.py` to support `.json` actors using `brainrender` style (lines vs meshes).
+**Status**: Hidden. AllenSDK does not expose per-experiment axonal streamlines or
+a supported `projection_lines` JSON artifact. The old selector implied a data
+product that the Miner could not obtain and has been removed from the GUI.
+
+**Goal:** Reconsider tube rendering only after selecting a documented external
+tract dataset, coordinate convention, file schema, and validation protocol.
+- [ ] **Data contract**: identify a real streamline source and versioned schema.
+- [ ] **Scientific validation**: verify registration and anatomical meaning before display.
+- [ ] **Rendering Logic**: add an actor only for the validated schema; reject arbitrary JSON.
 
 ### 3. Advanced Metrics Aggregation (Miner)
-**Status**: In Miner GUI, metrics like "Projection Energy" and "Projection Volume" are marked as "(Coming Soon)".
-**Goal:** Allow analysis based on different physical properties of the signal.
-- [ ] **Miner Update**: Implement download logic for `projection_energy` volumes.
-- [ ] **Aggregation Logic**: Update `aggregate.py` to process these new metric types correctly.
+**Status**: Available. The Miner GUI exposes `projection_density`,
+`projection_energy`, and `projection_volume`; configuration validation and
+aggregation share the same metric contract.
+
+- [x] **Miner Update**: download and validate `projection_energy` NRRD volumes.
+- [x] **Aggregation Logic**: aggregate all three Allen unionize metrics.
+- [x] **Viewer**: render and filter density or energy volumes.
+
+`projection_volume` is a structure-level unionize measure, not a 3D grid image,
+so it is intentionally available in CSV aggregation but not as a volume layer.
 
 ### 4. Variance & Statistical Confidence
 **Goal:** Identify reliable biological targets by analyzing inter-animal variability.
-- [ ] **Miner Update**: Calculate `std` (standard deviation) alongside `mean`.
+- [x] **Miner Update**: Calculate N, variance, standard deviation, and CI95 alongside mean.
 - [ ] **Analysis Notebook**: Visualize Confidence (Mean vs Variance) and filter by Coefficient of Variation.
 
 ---

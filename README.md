@@ -98,7 +98,7 @@ python -m pytest -q
 python -m pip wheel . --no-deps --wheel-dir .tmp-wheel
 ```
 
-Stato verificato il 2026-08-01: 86 test passati, 3 skip intenzionali; wheel
+Stato verificato il 2026-08-01: 89 test passati, 3 skip intenzionali; wheel
 `neuroglobe-5.0.0-py3-none-any.whl` costruita correttamente.
 
 ## Limiti scientifici residui
@@ -111,6 +111,8 @@ Stato verificato il 2026-08-01: 86 test passati, 3 skip intenzionali; wheel
   interpreta come registrati i vecchi NRRD;
 - le soglie di isosurface e percentile genetics non sono validate
   biologicamente;
+- AllenSDK non fornisce streamlines assonali per esperimento: la relativa
+  opzione resta nascosta finché non esiste un dataset esterno validato;
 - le coordinate stereotaxic sono dichiaratamente approssimate e non sono una
   trasformazione stereotaxic validata;
 - BrainRender può dipendere dai permessi della cache BrainGlobe dell’utente.

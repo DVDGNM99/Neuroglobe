@@ -1,6 +1,10 @@
 import dearpygui.dearpygui as dpg
 from pathlib import Path
 from neuroglobe.projections.viewer import logic
+from neuroglobe.projections.viewer.controller import (
+    TRACT_VISUALIZATION_MODES,
+    TRACT_VOLUME_METRICS,
+)
 
 class ViewerGUI:
     def __init__(self, controller):
@@ -281,14 +285,14 @@ class ViewerGUI:
             with dpg.group(horizontal=True):
                 # Visualization Mode (Mesh/Raw/None)
                 dpg.add_combo(
-                    items=["None", "Raw Volume", "Filtered Mesh", "Streamlines (Tubes)"],
+                    items=list(TRACT_VISUALIZATION_MODES),
                     default_value="None",
                     tag="combo_viz_mode",
                     width=180,
                 )
 
                 dpg.add_combo(
-                    items=["density", "energy"],
+                    items=list(TRACT_VOLUME_METRICS),
                     default_value="density",
                     tag="combo_tract_metric",
                     width=100,

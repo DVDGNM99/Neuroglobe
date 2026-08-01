@@ -3,7 +3,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from neuroglobe.projections.viewer.controller import ViewerController
+from neuroglobe.projections.viewer.controller import (
+    TRACT_VISUALIZATION_MODES,
+    TRACT_VOLUME_METRICS,
+    ViewerController,
+)
 
 
 def _controller(tmp_path: Path) -> ViewerController:
@@ -24,9 +28,9 @@ def _controller(tmp_path: Path) -> ViewerController:
     return controller
 
 
-def test_raw_energy_mode_selects_mhd_volume(tmp_path):
+def test_raw_energy_mode_selects_nrrd_volume(tmp_path):
     controller = _controller(tmp_path)
-    energy = controller.tracts_dir / "42_energy.mhd"
+    energy = controller.tracts_dir / "42_energy.nrrd"
     energy.touch()
 
     success, _ = controller.render_scene(
@@ -62,3 +66,23 @@ def test_filtered_mesh_rejects_different_metric(tmp_path):
 
     assert not success
     assert "metric mismatch" in message
+
+
+def test_viewer_exposes_only_backed_tract_modes_and_metrics():
+    assert TRACT_VISUALIZATION_MODES == ("None", "Raw Volume", "Filtered Mesh")
+    assert TRACT_VOLUME_METRICS == ("density", "energy")
+
+
+def test_unknown_visualization_mode_is_rejected_before_rendering(tmp_path):
+    controller = _controller(tmp_path)
+
+    success, message = controller.render_scene(
+        [{"acronym": "VISp", "color": "#ff0000"}],
+        "Streamlines (Tubes)",
+        "ACA",
+        True,
+    )
+
+    assert not success
+    assert "Unsupported visualization mode" in message
+    controller.engine.render_scene.assert_not_called()

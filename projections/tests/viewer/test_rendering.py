@@ -10,8 +10,6 @@ def _render_modules(scene_class, *, load=None):
     brainrender = types.ModuleType("brainrender")
     brainrender.Scene = scene_class
     brainrender.settings = types.SimpleNamespace()
-    actors = types.ModuleType("brainrender.actors")
-    actors.Streamlines = MagicMock()
     vedo = types.ModuleType("vedo")
     vedo.Text2D = MagicMock()
     vedo.LegendBox = MagicMock()
@@ -19,7 +17,6 @@ def _render_modules(scene_class, *, load=None):
     vedo.load = load or MagicMock()
     return {
         "brainrender": brainrender,
-        "brainrender.actors": actors,
         "vedo": vedo,
     }
 
@@ -104,3 +101,24 @@ def test_enabled_legend_receives_rendered_region_actors():
     modules["vedo"].LegendBox.assert_called_once()
     assert modules["vedo"].LegendBox.call_args.kwargs["entries"] == [region_actor]
     assert result.success
+
+
+def test_unsupported_tract_format_is_reported_as_failure(tmp_path):
+    scene_class = MagicMock()
+    scene = scene_class.return_value
+    scene.add_brain_region.side_effect = [MagicMock(), MagicMock()]
+    tract_path = tmp_path / "invented_streamlines.json"
+    tract_path.write_text("{}", encoding="utf-8")
+    modules = _render_modules(scene_class)
+
+    with patch.dict(sys.modules, modules):
+        result = _engine().render_scene(
+            [{"acronym": "VISp", "color": "#ff0000"}],
+            tract_file=tract_path,
+            show_legend=False,
+        )
+
+    assert not result.success
+    assert not result.tract_loaded
+    assert any("Unsupported tractography format" in error for error in result.errors)
+    modules["vedo"].Volume.assert_not_called()

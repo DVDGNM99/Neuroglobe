@@ -126,7 +126,7 @@ class RenderEngine:
                 log.warning(f"[WARN] Failed to add region {acronym}: {e}")
                 result.errors.append(f"Region {acronym}: {e}")
 
-        # --- 2. Tractography / Streamlines ---
+        # --- 2. Tractography volume or pre-filtered mesh ---
         if tract_file and tract_file.exists():
             log.info(f"[RENDER] Loading: {tract_file.name} (Mode: {visualization_mode})")
             try:
@@ -143,17 +143,8 @@ class RenderEngine:
                         tract_actor.name = "Tractography (Filtered)" # Name it!
                         log.info("[RENDER] Loaded mesh directly.")
 
-                # CASE B: Streamlines JSON (.json)
-                elif tract_file.suffix == ".json" and "Streamlines" in visualization_mode:
-                    from brainrender.actors import Streamlines
-                    log.info(f"[RENDER] Loading Streamlines from {tract_file.name}")
-                    # Brainrender Streamlines actor can load from file path
-                    tract_actor = Streamlines(str(tract_file))
-                    tract_actor.alpha(0.6)
-                    tract_actor.name = "Streamlines"
-                    
-                # CASE C: Raw Volume (.nrrd)
-                else:
+                # CASE B: Raw physical-space volume.
+                elif tract_file.suffix.lower() in {".nrrd", ".mhd"}:
                     log.debug(f"[DEBUG] Attempting to load Volume: {tract_file}")
                     vol = Volume(str(tract_file))
                     dmin, dmax = vol.scalar_range()
@@ -179,6 +170,11 @@ class RenderEngine:
                     else:
                         log.warning("[WARNING] Volume is empty (dmax=0).")
                         result.errors.append("Tract volume is empty.")
+
+                else:
+                    raise ValueError(
+                        f"Unsupported tractography format: {tract_file.suffix or '<none>'}"
+                    )
 
                 if tract_actor:
                     # The file header/mesh geometry is the registration source.

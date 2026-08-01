@@ -20,6 +20,8 @@ from neuroglobe.core.provenance import (
 )
 
 CONFIG_PATH = CONFIGS_DIR / "regions.json"
+TRACT_VISUALIZATION_MODES = ("None", "Raw Volume", "Filtered Mesh")
+TRACT_VOLUME_METRICS = ("density", "energy")
 
 
 from typing import List, Dict, Optional, Tuple, Any, Callable
@@ -246,10 +248,14 @@ class ViewerController:
         """
         Orchestrates the rendering of the 3D Scene.
         """
-        engine = self.get_lazy_engine(status_callback)
-        
+        if viz_mode not in TRACT_VISUALIZATION_MODES:
+            return False, f"Error: Unsupported visualization mode: {viz_mode}"
+        if metric not in TRACT_VOLUME_METRICS:
+            return False, f"Error: Unsupported tract metric: {metric}"
         if not selection:
             return False, "Error: No valid regions selected."
+
+        engine = self.get_lazy_engine(status_callback)
 
         # --- TRACTOGRAPHY MANAGEMENT ---
         tract_path = None
@@ -291,18 +297,6 @@ class ViewerController:
             else:
                 log.warning(f"[CONTROLLER] Filtered file not found. Run 'Filter Tracts' first.")
                 return False, "Error: No filtered data. Click 'Filter Tracts' first."
-
-        elif viz_mode == "Streamlines (Tubes)":
-            if self.current_tract_id:
-                stream_path = self.tracts_dir / f"{self.current_tract_id}_streamlines.json"
-                if stream_path.exists():
-                    tract_path = stream_path
-                    log.info(f"[CONTROLLER] Found Streamlines: {stream_path.name}")
-                else:
-                    log.warning(f"[CONTROLLER] Streamlines file not found: {stream_path.name}")
-                    if status_callback: status_callback("Warning: No streamlines data found for this ID.")
-                    return False, f"Error: Streamlines file not found: {stream_path.name}"
-
 
         # Load external visual config for alpha
         visual_config_path = CONFIGS_DIR / "visual_config.yaml"
