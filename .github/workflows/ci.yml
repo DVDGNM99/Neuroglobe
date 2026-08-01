@@ -36,12 +36,14 @@ jobs:
       - name: Compile
         run: python -m compileall -q neuroglobe projections/GUI_caller genetics/GUI_caller tests projections/tests
       - name: Test
-        run: python -m pytest -q
+        run: >-
+          python -m pytest -q
+          --ignore=projections/tests/miner
+          --ignore=projections/tests/viewer
       - name: Build wheel and source distribution
         run: python -m build
       - name: Entry-point smoke tests
         run: |
-          python -m neuroglobe.projections.viewer.main --help
           python -m neuroglobe.projections.miner.average_volume_cli --help
           python -m neuroglobe.integration.cli --help
           python -m neuroglobe.stereotaxic.render --help
@@ -73,7 +75,12 @@ jobs:
         run: python -m pip install --upgrade pip ".[${{ matrix.extra }},dev]"
       - name: Test optional environment
         if: matrix.extra == 'miner'
-        run: python -m pytest -q
+        run: python -m pytest -q --ignore=projections/tests/viewer
       - name: Test viewer headlessly
         if: matrix.extra == 'viewer'
-        run: xvfb-run -a python -m pytest -q
+        run: xvfb-run -a python -m pytest -q --ignore=projections/tests/miner
+      - name: Viewer entry-point import smoke
+        if: matrix.extra == 'viewer'
+        run: >-
+          xvfb-run -a python -c
+          "from neuroglobe.projections.viewer.main import main; assert callable(main)"
