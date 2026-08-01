@@ -77,7 +77,31 @@ La pipeline:
 Il renderer usa direttamente la geometria NRRD, senza `permute_axes`, scaling
 automatico o rotazioni correttive.
 
-## 5. Stereotaxic
+## 5. Scena integrata genetics + projections
+
+Il comando integrato accetta almeno un NRRD projection density e un NRRD di
+espressione genica. Creare la specifica dalla root del repository, in modo che
+i path sorgente rimangano relativi e portabili:
+
+```powershell
+python -m neuroglobe.integration.cli compose `
+  --output integrated_scene.json `
+  --projection experiment-180719293=projections/data/raw/experiment_180719293/projection_density_25.nrrd `
+  --gene Cux2=genetics/data/processed/Cux2_filtered.nrrd `
+  --region PL --region CP
+
+python -m neuroglobe.integration.cli validate integrated_scene.json
+python -m neuroglobe.integration.cli render integrated_scene.json
+```
+
+`compose` legge soltanto gli header NRRD, registra geometria e SHA-256 e
+rifiuta volumi fuori dal frame fisico Allen. Risoluzioni diverse sono ammesse:
+per esempio projection density a 25 um ed expression grid a 200 um possono
+condividere lo stesso frame. Non vengono applicate rotazioni, permutazioni,
+scale o traslazioni runtime. Dopo il rendering viene scritto un manifest di run
+immutabile accanto alla specifica.
+
+## 6. Stereotaxic
 
 ```powershell
 python -m neuroglobe.stereotaxic.gui
@@ -94,12 +118,17 @@ stdout: COORD_APPROX|{AP_MM}|{ML_MM}|{DV_MM}
 Gli aggiornamenti VTK vengono applicati dal render thread tramite timer. Le
 coordinate sono mostrate a una cifra decimale e marcate “unvalidated”.
 
-## 6. Verifica
+## 7. Verifica
 
 ```powershell
 python -m pytest -q
 ```
 
 I test interattivi BrainRender sono marcati `gui`/`integration` e saltati nel
-percorso headless. Prima di produrre figure definitive serve ancora una
-validazione con phantom asimmetrico e landmark anatomici noti.
+percorso headless. Il test Allen reale si abilita soltanto quando l'atlas e'
+gia' presente nella cache locale:
+
+```powershell
+$env:NEUROGLOBE_RUN_ATLAS_TESTS = "1"
+python -m pytest -q tests/test_real_atlas.py
+```

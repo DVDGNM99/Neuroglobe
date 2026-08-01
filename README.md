@@ -27,8 +27,13 @@ rigenerati, e alignment/coordinate richiedono ancora un gold standard esterno.
 - mesh filtrate legate a experiment/config hash con sidecar di provenance;
 - download genetics HTTPS, streaming, timeout, estrazione ZIP sicura e
   directory temporanee isolate;
-- subprocess GUI con stream unificati e return code controllati;
-- test headless isolati dalle dipendenze GUI.
+- subprocess GUI con stream unificati, timeout, cancellazione e progress;
+- operazioni di masking volumetrico chunked con memoria di lavoro limitata;
+- validazione con phantom asimmetrico, metriche fisiche e landmark Allen reali
+  opzionali dalla cache locale;
+- scene integrate genetics/projections con schema, checksum, provenance e
+  validazione preventiva della geometria AP/DV/ML;
+- CI Windows/Linux e test headless isolati dalle dipendenze GUI.
 
 ## Installazione
 
@@ -63,13 +68,16 @@ python -m neuroglobe.projections.viewer.main
 # Genetics
 python genetics/GUI_caller/genetics_gui.py
 
+# Scena integrata genetics + projections
+python -m neuroglobe.integration.cli --help
+
 # Stereotaxic
 python -m neuroglobe.stereotaxic.gui
 ```
 
 Dopo l’installazione sono disponibili anche i console script dichiarati in
-`pyproject.toml`, tra cui `neuroglobe-fetch`, `neuroglobe-aggregate` e
-`neuroglobe-viewer`.
+`pyproject.toml`, tra cui `neuroglobe-fetch`, `neuroglobe-aggregate`,
+`neuroglobe-viewer` e `neuroglobe-integrated-viewer`.
 
 ## Test e build
 
@@ -79,14 +87,14 @@ python -m pytest -q
 python -m pip wheel . --no-deps --wheel-dir .tmp-wheel
 ```
 
-Stato verificato il 2026-07-31: 33 test passati, 2 skip intenzionali; wheel
+Stato verificato il 2026-08-01: 65 test passati, 3 skip intenzionali; wheel
 `neuroglobe-5.0.0-py3-none-any.whl` costruita correttamente.
 
 ## Limiti scientifici residui
 
 - gli artefatti generati prima di questa migrazione non hanno geometria o
   lateralità affidabili;
-- manca ancora un phantom/landmark gold-standard end-to-end per volumi e mesh;
+- manca ancora un gold-standard esterno indipendente end-to-end per le mesh;
 - la selezione del volume rappresentativo resta single-animal, mentre il CSV è
   multi-esperimento;
 - le soglie di isosurface e percentile genetics non sono validate

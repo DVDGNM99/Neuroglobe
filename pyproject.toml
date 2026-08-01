@@ -48,6 +48,7 @@ neuroglobe-viewer = "neuroglobe.projections.viewer.main:main"
 neuroglobe-genetics-fetch = "neuroglobe.genetics.miner.fetch_genes:main"
 neuroglobe-genetics-filter = "neuroglobe.genetics.miner.filter_volume:main"
 neuroglobe-genetics-viewer = "neuroglobe.genetics.viewer.controller:main"
+neuroglobe-integrated-viewer = "neuroglobe.integration.cli:main"
 neuroglobe-stereotaxic = "neuroglobe.stereotaxic.gui:main"
 neuroglobe-stereotaxic-render = "neuroglobe.stereotaxic.render:main"
 

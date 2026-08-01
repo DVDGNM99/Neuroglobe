@@ -42,6 +42,7 @@ jobs:
       - name: Entry-point smoke tests
         run: |
           python -m neuroglobe.projections.viewer.main --help
+          python -m neuroglobe.integration.cli --help
           python -m neuroglobe.stereotaxic.render --help
           python -m neuroglobe.genetics.viewer.controller --help
 
