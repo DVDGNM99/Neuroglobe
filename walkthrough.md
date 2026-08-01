@@ -73,6 +73,20 @@ metodi o geometrie miste e produce media, varianza campionaria, estremi del CI
 95% Student-t e un manifest di run. Il calcolo avviene per chunk;
 l'implementazione non esegue né presume una registrazione automatica.
 
+Per usare una statistica nel renderer integrato, esportarla come NRRD raw. La
+scrittura mantiene l'ordine AP/DV/ML e la geometria del reference senza caricare
+l'intero array in RAM:
+
+```powershell
+python -m neuroglobe.projections.miner.average_volume_cli export-nrrd `
+  cohort/average/projection_density.manifest.json `
+  --statistic mean --output cohort/average/projection_density_mean.nrrd
+```
+
+L'export verifica nuovamente checksum e manifest e genera un sidecar di
+provenance. Il NRRD risultante può essere passato a `integration.cli compose`
+come qualunque altro projection volume registrato.
+
 ## 3. Viewer projections
 
 ```powershell

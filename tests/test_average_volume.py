@@ -5,8 +5,9 @@ import numpy as np
 import pytest
 
 from neuroglobe.core.coordinates import AtlasGeometry
-from neuroglobe.core.provenance import verify_manifest_integrity
-from neuroglobe.integration.geometry import VolumeGeometry
+from neuroglobe.core.provenance import canonical_json_hash, verify_manifest_integrity
+from neuroglobe.integration.geometry import VolumeGeometry, read_nrrd_geometry
+from neuroglobe.projections.miner.average_export import export_average_nrrd
 from neuroglobe.projections.miner.average_volume import (
     AverageVolumeProtocol,
     RegistrationQuality,
@@ -179,8 +180,6 @@ def test_average_rejects_duplicate_subjects(tmp_path):
     second_value = json.loads(second.read_text(encoding="utf-8"))
     second_value["subject_id"] = "first"
     second_value.pop("manifest_sha256")
-    from neuroglobe.core.provenance import canonical_json_hash
-
     second_value["manifest_sha256"] = canonical_json_hash(second_value, length=64)
     second.write_text(json.dumps(second_value), encoding="utf-8")
 
@@ -260,3 +259,131 @@ def test_average_volume_cli_creates_registration_contract(tmp_path, capsys):
 
     assert load_registered_volume(output).subject_id == "mouse-1"
     assert "manifest written" in capsys.readouterr().out
+
+
+def test_average_export_preserves_geometry_and_voxel_axis_order(tmp_path):
+    shape = (3, 2, 2)
+    first_values = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+    second_values = first_values + 2.0
+    manifests = [
+        _registered_subject(tmp_path, "mouse-1", first_values),
+        _registered_subject(tmp_path, "mouse-2", second_values),
+    ]
+    average = aggregate_registered_volumes(
+        manifests,
+        output_dir=tmp_path / "average",
+    )
+
+    exported = export_average_nrrd(
+        average.manifest_path,
+        statistic="mean",
+        output_path=tmp_path / "average" / "mean.nrrd",
+    )
+
+    geometry = read_nrrd_geometry(exported.nrrd_path)
+    assert geometry.geometry == load_registered_volume(manifests[0]).geometry.geometry
+    payload = exported.nrrd_path.read_bytes()
+    boundary = payload.index(b"\n\n") + 2
+    restored = np.frombuffer(payload[boundary:], dtype="<f4").reshape(shape, order="F")
+    np.testing.assert_array_equal(restored, first_values + 1.0)
+    sidecar = json.loads(exported.manifest_path.read_text(encoding="utf-8"))
+    assert verify_manifest_integrity(sidecar)
+    assert sidecar["coordinate_convention"].endswith("units=um")
+
+
+def test_average_export_rejects_modified_statistic_array(tmp_path):
+    manifests = [
+        _registered_subject(tmp_path, "mouse-1", np.ones((2, 2, 2))),
+        _registered_subject(tmp_path, "mouse-2", np.full((2, 2, 2), 3.0)),
+    ]
+    average = aggregate_registered_volumes(
+        manifests,
+        output_dir=tmp_path / "average",
+    )
+    mean = np.load(average.mean_path, mmap_mode="r+")
+    mean[0, 0, 0] = 99
+    mean.flush()
+    del mean
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        export_average_nrrd(
+            average.manifest_path,
+            statistic="mean",
+            output_path=tmp_path / "average" / "mean.nrrd",
+        )
+
+
+def test_average_export_rejects_incompatible_coordinate_convention(tmp_path):
+    manifests = [
+        _registered_subject(tmp_path, "mouse-1", np.ones((2, 2, 2))),
+        _registered_subject(tmp_path, "mouse-2", np.full((2, 2, 2), 3.0)),
+    ]
+    average = aggregate_registered_volumes(
+        manifests,
+        output_dir=tmp_path / "average",
+    )
+    manifest = json.loads(average.manifest_path.read_text(encoding="utf-8"))
+    manifest["coordinate_convention"] = "unknown"
+    manifest.pop("manifest_sha256")
+    manifest["manifest_sha256"] = canonical_json_hash(manifest, length=64)
+    average.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="coordinate convention"):
+        export_average_nrrd(
+            average.manifest_path,
+            statistic="mean",
+            output_path=tmp_path / "average" / "mean.nrrd",
+        )
+
+
+def test_cancelled_average_export_removes_partial_nrrd(tmp_path):
+    manifests = [
+        _registered_subject(tmp_path, "mouse-1", np.ones((2, 2, 2))),
+        _registered_subject(tmp_path, "mouse-2", np.full((2, 2, 2), 3.0)),
+    ]
+    average = aggregate_registered_volumes(
+        manifests,
+        output_dir=tmp_path / "average",
+    )
+    output = tmp_path / "average" / "mean.nrrd"
+
+    with pytest.raises(RuntimeError, match="cancelled"):
+        export_average_nrrd(
+            average.manifest_path,
+            statistic="mean",
+            output_path=output,
+            cancellation_check=lambda: True,
+        )
+
+    assert not output.exists()
+    assert not output.with_suffix(".manifest.json").exists()
+    assert not list(output.parent.glob(".*.tmp"))
+
+
+def test_average_volume_cli_exports_nrrd(tmp_path, capsys):
+    manifests = [
+        _registered_subject(tmp_path, "mouse-1", np.ones((2, 2, 2))),
+        _registered_subject(tmp_path, "mouse-2", np.full((2, 2, 2), 3.0)),
+    ]
+    average = aggregate_registered_volumes(
+        manifests,
+        output_dir=tmp_path / "average",
+    )
+    output = tmp_path / "average" / "variance.nrrd"
+
+    assert main(
+        [
+            "export-nrrd",
+            str(average.manifest_path),
+            "--statistic",
+            "variance",
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    captured = capsys.readouterr()
+    assert output.is_file()
+    assert output.with_suffix(".manifest.json").is_file()
+    assert "PROGRESS|2|2" in captured.out
+    assert f"NRRD volume: {output}" in captured.out

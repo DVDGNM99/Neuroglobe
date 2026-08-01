@@ -34,7 +34,8 @@ rigenerati, e alignment/coordinate richiedono ancora un gold standard esterno.
 - scene integrate genetics/projections con schema, checksum, provenance e
   validazione preventiva della geometria AP/DV/ML;
 - protocollo average-volume vincolato a registrazione/QC, con media, varianza
-  campionaria e CI 95% Student-t voxel-wise su array memory-mapped;
+  campionaria e CI 95% Student-t voxel-wise su array memory-mapped, esportabili
+  in NRRD fisico verificato;
 - CI Windows/Linux e test headless isolati dalle dipendenze GUI.
 
 ## Installazione

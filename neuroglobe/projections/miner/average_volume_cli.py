@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 
 from neuroglobe.integration.geometry import read_nrrd_geometry
+from neuroglobe.projections.miner.average_export import (
+    AVERAGE_STATISTICS,
+    export_average_nrrd,
+)
 from neuroglobe.projections.miner.average_volume import (
     AverageVolumeProtocol,
     RegistrationQuality,
@@ -60,6 +64,14 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("float32", "float64"),
         default="float32",
     )
+
+    export = subparsers.add_parser(
+        "export-nrrd",
+        help="stream one verified average statistic to physical-space NRRD",
+    )
+    export.add_argument("manifest", type=Path)
+    export.add_argument("--statistic", choices=AVERAGE_STATISTICS, default="mean")
+    export.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -116,6 +128,21 @@ def _aggregate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _export_nrrd(args: argparse.Namespace) -> int:
+    def report_progress(current: int, total: int) -> None:
+        print(f"PROGRESS|{current}|{total}", flush=True)
+
+    result = export_average_nrrd(
+        args.manifest,
+        statistic=args.statistic,
+        output_path=args.output,
+        progress_callback=report_progress,
+    )
+    print(f"NRRD volume: {result.nrrd_path}")
+    print(f"Artifact manifest: {result.manifest_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -123,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
             return _register(args)
         if args.command == "aggregate":
             return _aggregate(args)
+        if args.command == "export-nrrd":
+            return _export_nrrd(args)
     except (FileExistsError, FileNotFoundError, OSError, RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
