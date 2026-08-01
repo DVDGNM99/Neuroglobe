@@ -33,6 +33,8 @@ rigenerati, e alignment/coordinate richiedono ancora un gold standard esterno.
   opzionali dalla cache locale;
 - scene integrate genetics/projections con schema, checksum, provenance e
   validazione preventiva della geometria AP/DV/ML;
+- protocollo average-volume vincolato a registrazione/QC, con media, varianza
+  campionaria e CI 95% Student-t voxel-wise su array memory-mapped;
 - CI Windows/Linux e test headless isolati dalle dipendenze GUI.
 
 ## Installazione
@@ -63,6 +65,7 @@ python -m neuroglobe.projections.miner.fetch
 python -m neuroglobe.projections.miner.extract_tracts
 python -m neuroglobe.projections.miner.aggregate
 python -m neuroglobe.projections.miner.filter_csv
+python -m neuroglobe.projections.miner.average_volume_cli --help
 python -m neuroglobe.projections.viewer.main
 
 # Genetics
@@ -77,7 +80,8 @@ python -m neuroglobe.stereotaxic.gui
 
 Dopo l’installazione sono disponibili anche i console script dichiarati in
 `pyproject.toml`, tra cui `neuroglobe-fetch`, `neuroglobe-aggregate`,
-`neuroglobe-viewer` e `neuroglobe-integrated-viewer`.
+`neuroglobe-average-volume`, `neuroglobe-viewer` e
+`neuroglobe-integrated-viewer`.
 
 Nel pannello Genetics, il pulsante **Projection + Genes** usa i geni e le
 regioni selezionati, chiede un projection-density NRRD e avvia lo stesso flusso
@@ -91,7 +95,7 @@ python -m pytest -q
 python -m pip wheel . --no-deps --wheel-dir .tmp-wheel
 ```
 
-Stato verificato il 2026-08-01: 65 test passati, 3 skip intenzionali; wheel
+Stato verificato il 2026-08-01: 76 test passati, 3 skip intenzionali; wheel
 `neuroglobe-5.0.0-py3-none-any.whl` costruita correttamente.
 
 ## Limiti scientifici residui
@@ -99,8 +103,9 @@ Stato verificato il 2026-08-01: 65 test passati, 3 skip intenzionali; wheel
 - gli artefatti generati prima di questa migrazione non hanno geometria o
   lateralità affidabili;
 - manca ancora un gold-standard esterno indipendente end-to-end per le mesh;
-- la selezione del volume rappresentativo resta single-animal, mentre il CSV è
-  multi-esperimento;
+- il viewer standard usa ancora un volume rappresentativo single-animal; il
+  protocollo average-volume richiede volumi registrati esternamente e non
+  interpreta come registrati i vecchi NRRD;
 - le soglie di isosurface e percentile genetics non sono validate
   biologicamente;
 - le coordinate stereotaxic sono dichiaratamente approssimate e non sono una

@@ -42,6 +42,37 @@ python -m neuroglobe.projections.miner.filter_csv
 L’estrattore copia il NRRD Allen originale quando presente nella cache. Non
 ricostruisce più spacing/orientamento con euristiche.
 
+### 2a. Average-volume registrato
+
+La media voxel-wise non accetta volumi grezzi. Ogni animale deve essere prima
+registrato sullo stesso reference con un tool esterno e salvato come array
+`.npy` memory-mapped. Creare quindi un contratto per soggetto:
+
+```powershell
+python -m neuroglobe.projections.miner.average_volume_cli register registered.npy `
+  --transform subject_to_reference.tfm `
+  --geometry-nrrd reference_grid.nrrd `
+  --output registered.manifest.json `
+  --subject-id mouse-01 --atlas allen_mouse_25um `
+  --reference-id cohort-reference-v1 --method affine-plus-syn `
+  --dice 0.93 --hausdorff-um 180 --landmark-rmse-um 90
+```
+
+Il manifest lega array, transform, geometria AP/DV/ML e metriche QC tramite
+SHA-256. Dopo avere creato almeno due manifest compatibili:
+
+```powershell
+python -m neuroglobe.projections.miner.average_volume_cli aggregate `
+  cohort/mouse-01/registered.manifest.json `
+  cohort/mouse-02/registered.manifest.json `
+  --output-dir cohort/average --prefix projection_density
+```
+
+Il comando esclude esplicitamente i soggetti sotto soglia, rifiuta reference,
+metodi o geometrie miste e produce media, varianza campionaria, estremi del CI
+95% Student-t e un manifest di run. Il calcolo avviene per chunk;
+l'implementazione non esegue né presume una registrazione automatica.
+
 ## 3. Viewer projections
 
 ```powershell

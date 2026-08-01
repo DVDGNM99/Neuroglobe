@@ -54,6 +54,8 @@ genetics/runtime/
 
 # Analysis notebooks are local working artifacts, not source distributions.
 *.ipynb
+*.npy
+*.npz
 
 # --- Scenes / Output ---
 scenes/

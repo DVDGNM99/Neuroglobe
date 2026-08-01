@@ -7,6 +7,8 @@ DISALLOWED_ARTIFACT_SUFFIXES = {
     ".ipynb",
     ".mhd",
     ".nrrd",
+    ".npy",
+    ".npz",
     ".obj",
     ".png",
     ".raw",
